@@ -1,0 +1,361 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  <data name="bluray" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\bluray.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="split" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\split.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="cd" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\cd.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="custom" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\custom.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="dvd" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\dvd.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="search" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\search.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Background" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Background.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Elektro" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Elektro.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="ENG01" xml:space="preserve">
+    <value>Want to cancel the current operation?</value>
+  </data>
+  <data name="ENG10" xml:space="preserve">
+    <value>A utility that allows you to split a directory into multiple folders of a specific size to burn it later.</value>
+  </data>
+  <data name="ENG11" xml:space="preserve">
+    <value>Input :</value>
+  </data>
+  <data name="ENG12" xml:space="preserve">
+    <value>Output :</value>
+  </data>
+  <data name="ENG13" xml:space="preserve">
+    <value>Capacity</value>
+  </data>
+  <data name="ENG14" xml:space="preserve">
+    <value>Mode</value>
+  </data>
+  <data name="ENG15" xml:space="preserve">
+    <value>Information</value>
+  </data>
+  <data name="ENG16" xml:space="preserve">
+    <value>Data   :</value>
+  </data>
+  <data name="ENG17" xml:space="preserve">
+    <value>Discs :</value>
+  </data>
+  <data name="ENG18" xml:space="preserve">
+    <value>SPLIT</value>
+  </data>
+  <data name="ENG19" xml:space="preserve">
+    <value>STOP</value>
+  </data>
+  <data name="ENG02" xml:space="preserve">
+    <value>Drop a folder here...</value>
+  </data>
+  <data name="ENG20" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="ENG21" xml:space="preserve">
+    <value>Custom size</value>
+  </data>
+  <data name="ENG22" xml:space="preserve">
+    <value>About...</value>
+  </data>
+  <data name="ENG23" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="ENG24" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="ENG25" xml:space="preserve">
+    <value>Spanish</value>
+  </data>
+  <data name="ENG26" xml:space="preserve">
+    <value> of custom storage</value>
+  </data>
+  <data name="ENG27" xml:space="preserve">
+    <value>Storing {0} of {2} volumes... {1}%</value>
+  </data>
+  <data name="ENG03" xml:space="preserve">
+    <value>The output directory can't be the same as Input directory</value>
+  </data>
+  <data name="ENG04" xml:space="preserve">
+    <value>The input directory can't be the same as output directory</value>
+  </data>
+  <data name="ENG05" xml:space="preserve">
+    <value>That's not a directory!</value>
+  </data>
+  <data name="ENG06" xml:space="preserve">
+    <value>Copying {0} of {2} files... {1}%</value>
+  </data>
+  <data name="ENG07" xml:space="preserve">
+    <value>Creating ISO image for disc #</value>
+  </data>
+  <data name="ENG08" xml:space="preserve">
+    <value>Storing {0} of {2} volumes...</value>
+  </data>
+  <data name="ENG09" xml:space="preserve">
+    <value>All files splitted OK</value>
+  </data>
+  <data name="SPA01" xml:space="preserve">
+    <value>¿Quiere cancelar la operación?</value>
+  </data>
+  <data name="SPA10" xml:space="preserve">
+    <value>Una utilidad que le permite partir un directorio en varias carpetas de un tamaño específico para grabarlas.</value>
+  </data>
+  <data name="SPA11" xml:space="preserve">
+    <value>Origen :</value>
+  </data>
+  <data name="SPA12" xml:space="preserve">
+    <value>Destino :</value>
+  </data>
+  <data name="SPA13" xml:space="preserve">
+    <value>Capacidad</value>
+  </data>
+  <data name="SPA14" xml:space="preserve">
+    <value>Modo</value>
+  </data>
+  <data name="SPA15" xml:space="preserve">
+    <value>Información</value>
+  </data>
+  <data name="SPA16" xml:space="preserve">
+    <value>Datos   :</value>
+  </data>
+  <data name="SPA17" xml:space="preserve">
+    <value>Discos :</value>
+  </data>
+  <data name="SPA18" xml:space="preserve">
+    <value>PARTIR</value>
+  </data>
+  <data name="SPA19" xml:space="preserve">
+    <value>PARAR</value>
+  </data>
+  <data name="SPA02" xml:space="preserve">
+    <value>Arrastre un directorio aquí...</value>
+  </data>
+  <data name="SPA20" xml:space="preserve">
+    <value>Copia</value>
+  </data>
+  <data name="SPA21" xml:space="preserve">
+    <value>Tamaño pers.</value>
+  </data>
+  <data name="SPA22" xml:space="preserve">
+    <value>Acerca de...</value>
+  </data>
+  <data name="SPA23" xml:space="preserve">
+    <value>Idioma</value>
+  </data>
+  <data name="SPA24" xml:space="preserve">
+    <value>Inglés</value>
+  </data>
+  <data name="SPA25" xml:space="preserve">
+    <value>Castellano</value>
+  </data>
+  <data name="SPA26" xml:space="preserve">
+    <value> de almacenamiento</value>
+  </data>
+  <data name="SPA27" xml:space="preserve">
+    <value>Almacenando {0} de {2} volumenes... {1}%</value>
+  </data>
+  <data name="SPA03" xml:space="preserve">
+    <value>El directorio de salida no puede ser el mismo que el directorio de entrada</value>
+  </data>
+  <data name="SPA04" xml:space="preserve">
+    <value>El directorio de entrada no puede ser el mismo que el directorio de salida</value>
+  </data>
+  <data name="SPA05" xml:space="preserve">
+    <value>¡Eso no es un directorio!</value>
+  </data>
+  <data name="SPA06" xml:space="preserve">
+    <value>Copiando {0} de {2} archivos... {1}%</value>
+  </data>
+  <data name="SPA07" xml:space="preserve">
+    <value>Creando imagen ISO del disco #</value>
+  </data>
+  <data name="SPA08" xml:space="preserve">
+    <value>Almacenando {0} de {2} volumenes...</value>
+  </data>
+  <data name="SPA09" xml:space="preserve">
+    <value>Todos los archivos se han partido corréctamente.</value>
+  </data>
+  <data name="ENG28" xml:space="preserve">
+    <value>Split aborted</value>
+  </data>
+  <data name="ENG29" xml:space="preserve">
+    <value>Custom size cannot be greather than input directory size.</value>
+  </data>
+  <data name="ENG30" xml:space="preserve">
+    <value>Directory size: </value>
+  </data>
+  <data name="ENG31" xml:space="preserve">
+    <value>Custom size: </value>
+  </data>
+  <data name="SPA28" xml:space="preserve">
+    <value>Operación cancelada</value>
+  </data>
+  <data name="SPA29" xml:space="preserve">
+    <value>El tamaño personalizado no puede ser mayor que el tamaño del directorio de entrada.</value>
+  </data>
+  <data name="SPA30" xml:space="preserve">
+    <value>Tamaño de directorio: </value>
+  </data>
+  <data name="SPA31" xml:space="preserve">
+    <value>Tamaño personalizado: </value>
+  </data>
+  <data name="Spain" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Spain.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="United_States" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\United-States.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Splitty_7zip_x64" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\x64\Splitty_7zip_x64.exe;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="Splitty_7zip_x86" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\x86\Splitty_7zip_x86.exe;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="Splitty_PowerISO_x86" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\x86\Splitty_PowerISO_x86.7z;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="Splitty_WinRAR_x64" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\x64\Splitty_WinRAR_x64.7z;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="Splitty_WinRAR_x86" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\x86\Splitty_WinRAR_x86.7z;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="_7z" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\x64\7z.dll;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="ENG32" xml:space="preserve">
+    <value>File changes have been made in source folder, Want to reload the folder now?</value>
+  </data>
+  <data name="SPA32" xml:space="preserve">
+    <value>Se han efectuado cambios en los archivos de la carpeta de origen, ¿Quiere recargar la carpeta ahora?</value>
+  </data>
+</root>
