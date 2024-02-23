@@ -36,7 +36,7 @@ Additionally, it supports copying using the following file formats (without comp
 
  - 7Z
  - RAR
- - SFX (RAR Selx-Extractor)
+ - SFX (WinRAR Self-Extractor)
  - ISO
  - TAR
 
