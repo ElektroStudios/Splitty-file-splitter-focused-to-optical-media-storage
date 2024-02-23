@@ -20,7 +20,7 @@ windows-forms
 winforms 
  -->
 
-# Splitty - A directory splitter focused to optical media formats.
+# Splitty - A file/dir splitter focused to optical media formats.
 
 ### Splitty is a program to split the contents of a directory into multiple directories according to a specified optical media storage size, or a custom size.
 
