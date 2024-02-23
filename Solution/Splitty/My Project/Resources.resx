@@ -334,6 +334,12 @@
   <data name="United_States" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\United-States.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="ENG32" xml:space="preserve">
+    <value>File changes have been made in source folder, Want to reload the folder now?</value>
+  </data>
+  <data name="SPA32" xml:space="preserve">
+    <value>Se han efectuado cambios en los archivos de la carpeta de origen, ¿Quiere recargar la carpeta ahora?</value>
+  </data>
   <data name="Splitty_7zip_x64" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\x64\Splitty_7zip_x64.exe;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
@@ -349,13 +355,10 @@
   <data name="Splitty_WinRAR_x86" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\x86\Splitty_WinRAR_x86.7z;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
-  <data name="_7z" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\x64\7z.dll;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  <data name="_7z_x64" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\x64\7z_x64.dll;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
-  <data name="ENG32" xml:space="preserve">
-    <value>File changes have been made in source folder, Want to reload the folder now?</value>
-  </data>
-  <data name="SPA32" xml:space="preserve">
-    <value>Se han efectuado cambios en los archivos de la carpeta de origen, ¿Quiere recargar la carpeta ahora?</value>
+  <data name="_7z_x86" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\x86\7z_x86.dll;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
 </root>

@@ -64,7 +64,7 @@ Partial Class About
         DesignerRectTracker1.TrackerRectangle = CType(resources.GetObject("DesignerRectTracker1.TrackerRectangle"), System.Drawing.RectangleF)
         Me.CButton1.CenterPtTracker = DesignerRectTracker1
         CBlendItems1.iColor = New System.Drawing.Color() {System.Drawing.Color.Silver, System.Drawing.Color.Black, System.Drawing.Color.Gray}
-        CBlendItems1.iPoint = New Single() {0.0!, 0.5!, 1.0!}
+        CBlendItems1.iPoint = New Single() {0!, 0.5!, 1.0!}
         Me.CButton1.ColorFillBlend = CBlendItems1
         Me.CButton1.Cursor = System.Windows.Forms.Cursors.Hand
         Me.CButton1.FocalPoints.CenterPtX = 0.484472!
@@ -90,7 +90,7 @@ Partial Class About
         Me.GLabel1.Name = "GLabel1"
         Me.GLabel1.Size = New System.Drawing.Size(390, 19)
         Me.GLabel1.TabIndex = 8
-        Me.GLabel1.Text = "Splitty 1.6"
+        Me.GLabel1.Text = "Splitty 1.7"
         '
         'GLabel2
         '
@@ -103,7 +103,7 @@ Partial Class About
         Me.GLabel2.Name = "GLabel2"
         Me.GLabel2.Size = New System.Drawing.Size(390, 19)
         Me.GLabel2.TabIndex = 9
-        Me.GLabel2.Text = "© ElektroSoft 2013"
+        Me.GLabel2.Text = "© ElektroStudios 2013-2024"
         '
         'About
         '
