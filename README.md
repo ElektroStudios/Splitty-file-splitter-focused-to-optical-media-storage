@@ -30,6 +30,8 @@ winforms
 
 To give you context, imagine having a directory containing thousands of files totaling 10 GB in size. You aim to burn these files onto a DVD, yet the task of organizing and splitting them into multiple directories of DVD size seems daunting. This is where Splitty can be invaluable, streamlining the process and saving you time by automating the tedious task of splitting your files into manageable directories. Moreover, Splitty can serve other purposes beyond this.
 
+This is an old project, with ugly source-code, and probably I will not rewrite it using good and modern habbits.
+
 ## 👌 Features
 
 Additionally, it supports copying using the following file formats (without compression):
