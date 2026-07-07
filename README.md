@@ -70,11 +70,11 @@ Distributing hundreds of gigabytes of loose files or deeply nested directory str
 
 Instead of trial-and-error manual sorting or writing volatile batch scripts, this application automatically maps the entire input directory and computes the optimal file distribution layout based on predefined optical standards or custom sector constraints.
 
-> [!NOTE]
-> This is an unmaintained legacy project. The source-code relies on older development standards and will not be refactored, but the utility remains fully functional and reliable for its intended purpose.
-
 ##### ⚡ The Real Question
 ###### How much time do you lose trying to manually balance and split a 100 GB nested directory structure into exact storage blocks without leaving dead space or exceeding target capacity limits?.
+
+> [!NOTE]
+> This is an unmaintained legacy project. The source-code relies on older development standards and will not be refactored, but the utility remains fully functional and reliable for its intended purpose.
 
 ## 🤖 Features
 
