@@ -1,4 +1,4 @@
-# Splitty Change Log 📋
+﻿# Splitty Change Log 📋
 
 ## v1.7 (2024) *(current)* 🆕
 #### 🌟 Improvements:
