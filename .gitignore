@@ -3,6 +3,10 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# Allow specific architecture folders in Resources
+!Source/Splitty/Resources/x64/
+!Source/Splitty/Resources/x86/
+
 # User-specific files
 *.rsuser
 *.suo
