@@ -78,6 +78,16 @@ Instead of trial-and-error manual sorting or writing volatile batch scripts, thi
 > [!NOTE]
 > This is a legacy project. The source-code relies on older development standards and will not be refactored, but the utility remains fully functional and reliable for its intended purpose.
 
+## 🖼️ Screenshots
+
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px 0;">
+    <img src="Images/Splitty%2001.png" alt="Splitty 01" style="width: 48%; height: auto;">
+    <img src="Images/Splitty%2002.png" alt="Splitty 02" style="width: 48%; height: auto;">
+    <br>
+    <img src="Images/Splitty%2003.png" alt="Splitty 03" style="width: 48%; height: auto;">
+    <img src="Images/Splitty%2004.png" alt="Splitty 04" style="width: 48%; height: auto;">
+</div>
+
 ## 🤖 Features
 
 - **Automatic Splitting:** Analyzes your heavy folder and splits it into multiple blocks that fit perfectly into the destination.
@@ -90,16 +100,6 @@ Instead of trial-and-error manual sorting or writing volatile batch scripts, thi
   - SFX (WinRAR Self-Extractor)
   - ISO
   - TAR
-
-## 🖼️ Screenshots
-
-<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px 0;">
-    <img src="Images/Splitty%2001.png" alt="Splitty 01" style="width: 48%; height: auto;">
-    <img src="Images/Splitty%2002.png" alt="Splitty 02" style="width: 48%; height: auto;">
-    <br>
-    <img src="Images/Splitty%2003.png" alt="Splitty 03" style="width: 48%; height: auto;">
-    <img src="Images/Splitty%2004.png" alt="Splitty 04" style="width: 48%; height: auto;">
-</div>
 
 ## 📝 Requirements
 
