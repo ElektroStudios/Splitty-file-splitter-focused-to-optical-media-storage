@@ -397,8 +397,10 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
-# Allow specific architecture folders in Resources
-!/Source/Splitty/Resources/x64/
-!/Source/Splitty/Resources/x64/*
-!/Source/Splitty/Resources/x86/
-!/Source/Splitty/Resources/x86/*
+# Allow specific Resources
+!/Source/*/Resources/
+!/Source/*/Resources/*
+!/Source/*/Resources/x64/
+!/Source/*/Resources/x64/*
+!/Source/*/Resources/x86/
+!/Source/*/Resources/x86/*
