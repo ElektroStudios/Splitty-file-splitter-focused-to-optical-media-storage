@@ -45,7 +45,7 @@ winforms
     <a href="https://github.com/ElektroStudios/Splitty-file-splitter-focused-to-optical-media-storage/releases/latest"><img src="https://img.shields.io/github/v/release/ElektroStudios/Splitty-file-splitter-focused-to-optical-media-storage" alt="Latest Release"></a>
     <a href="https://learn.microsoft.com/en-us/dotnet/visual-basic/"><img src="https://img.shields.io/badge/language-VB.NET-purple.svg?logo=visualbasic" alt="Language"></a>
     <a href="https://learn.microsoft.com/en-us/windows/apps/"><img src="https://img.shields.io/badge/platform-Windows-lightgray.svg" alt="Platform"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/ElektroStudios/Splitty-file-splitter-focused-to-optical-media-storage" alt="License"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/ElektroStudios/Splitty-file-splitter-focused-to-optical-media-storage" alt="LICENSE"></a>
   <br>
     <a href="https://api.github.com/repos/ElektroStudios/Splitty-file-splitter-focused-to-optical-media-storage/zipball"><img src="https://img.shields.io/github/repo-size/ElektroStudios/Splitty-file-splitter-focused-to-optical-media-storage" alt="Repo size"></a>
     <a href="https://somsubhra.github.io/github-release-stats/?username=ElektroStudios&repository=Splitty-file-splitter-focused-to-optical-media-storage"><img src="https://img.shields.io/github/downloads/ElektroStudios/Splitty-file-splitter-focused-to-optical-media-storage/total.svg?label=total%20downloads" alt="Total Downloads"></a>
