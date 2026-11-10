@@ -22,7 +22,7 @@ Namespace My.Resources
     '''<summary>
     '''  A strongly-typed resource class, for looking up localized strings, etc.
     '''</summary>
-    <Global.System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0"),  _
+    <Global.System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "18.0.0.0"),  _
      Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
      Global.System.Runtime.CompilerServices.CompilerGeneratedAttribute(),  _
      Global.Microsoft.VisualBasic.HideModuleNameAttribute()>  _
@@ -429,6 +429,24 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized string similar to The output directory can&apos;t be the same as, or be inside of, the input directory..
+        '''</summary>
+        Public ReadOnly Property ENG33() As String
+            Get
+                Return ResourceManager.GetString("ENG33", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to An error occurred while splitting:.
+        '''</summary>
+        Public ReadOnly Property ENG34() As String
+            Get
+                Return ResourceManager.GetString("ENG34", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized resource of type System.Drawing.Bitmap.
         '''</summary>
         Public ReadOnly Property search() As System.Drawing.Bitmap
@@ -723,6 +741,24 @@ Namespace My.Resources
         Public ReadOnly Property SPA32() As String
             Get
                 Return ResourceManager.GetString("SPA32", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to El directorio de salida no puede ser el mismo que el directorio de entrada, ni estar dentro de él..
+        '''</summary>
+        Public ReadOnly Property SPA33() As String
+            Get
+                Return ResourceManager.GetString("SPA33", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to Se produjo un error al partir:.
+        '''</summary>
+        Public ReadOnly Property SPA34() As String
+            Get
+                Return ResourceManager.GetString("SPA34", resourceCulture)
             End Get
         End Property
         

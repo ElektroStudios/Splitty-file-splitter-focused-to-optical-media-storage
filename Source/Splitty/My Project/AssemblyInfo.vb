@@ -14,7 +14,7 @@ Imports System.Runtime.InteropServices
 <Assembly: AssemblyDescription("Splits the contents of a directory into multiple directories according to a specified (disc) size.")>
 <Assembly: AssemblyCompany("ElektroStudios")> 
 <Assembly: AssemblyProduct("Splitty")>
-<Assembly: AssemblyCopyright("Copyright © ElektroStudios 2014-2024")>
+<Assembly: AssemblyCopyright("Copyright © ElektroStudios 2014-2026")>
 <Assembly: AssemblyTrademark("")> 
 
 <Assembly: ComVisible(False)> 
@@ -33,7 +33,7 @@ Imports System.Runtime.InteropServices
 ' by using the '*' as shown below:
 ' <Assembly: AssemblyVersion("1.0.*")> 
 
-<Assembly: AssemblyVersion("1.7.0.0")>
-<Assembly: AssemblyFileVersion("1.7.0.0")>
+<Assembly: AssemblyVersion("1.8.0.0")>
+<Assembly: AssemblyFileVersion("1.8.0.0")>
 
 <Assembly: NeutralResourcesLanguageAttribute("en")> 

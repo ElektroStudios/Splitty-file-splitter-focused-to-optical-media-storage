@@ -26,6 +26,15 @@ Imports Splitty
 Public Class About
 
     ''' <summary>
+    ''' Raises the HandleCreated event and applies the dark title bar if the user's system theme is set to dark.
+    ''' </summary>
+    ''' <param name="e">An EventArgs that contains the event data.</param>
+    Protected Overrides Sub OnHandleCreated(e As EventArgs)
+        MyBase.OnHandleCreated(e)
+        Main.ApplyDarkTitleBar(Me.Handle)
+    End Sub
+
+    ''' <summary>
     ''' Handles the Load event of the About Form.
     ''' </summary>
     ''' <param name="sender">The source of the event.</param>

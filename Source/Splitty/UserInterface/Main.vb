@@ -1,18 +1,22 @@
-﻿Public Class Main
+﻿Imports System.Runtime.InteropServices
+
+Imports Microsoft.Win32
+
+Imports Splitty.Core
+
+Public Class Main
 
 #Region " Declarations "
 
     Public SelectedDirSizeBytes As Long
     Public SelectedDirSizeConvertedBytes As String
     Public SelectedDiscFormat As String
-    Public SelectedDiscFormatLabel As String
     Public SelectedDiscBytes As Long
 
-    Public CopyMode As String = "Copy"
+    Public CopyMode As SplitMode = SplitMode.Copy
 
-    Public FilesList As New List(Of String)
+    Public FilesList As New List(Of SourceFileEntry)
     Public TotalFilesNumber As Integer
-    Public CachedSize As Long
 
     Public ThreadProcess As System.Threading.Thread
     Public ThreadProcessIsCompleted As Boolean = False
@@ -26,6 +30,26 @@
     Public Shared LanguageResource = "ENG"
 
     Dim architecture = Me.Get_OS_Architecture()
+
+    ''' <summary>
+    ''' The maximum number of times PowerISO is executed to create the ISO image of a disc before giving up.
+    ''' </summary>
+    Private Const MaxIsoAttempts As Integer = 3
+
+    ''' <summary>
+    ''' The source directory currently locked with <see cref="FolderLock.Lock"/>, or <see langword="Nothing"/>.
+    ''' </summary>
+    Private lockedDirectory As String
+
+    ''' <summary>
+    ''' The exception thrown by the split thread, or <see langword="Nothing"/> if the split succeeded.
+    ''' </summary>
+    Private splitError As Exception
+
+    ''' <summary>
+    ''' Indicates whether the "reload source folder" question is currently shown.
+    ''' </summary>
+    Private isAskingReload As Boolean
 
 #End Region
 
@@ -63,25 +87,33 @@
 
     Private Sub Form1_FormClosing(sender As Object, e As FormClosingEventArgs) Handles MyBase.FormClosing
 
-        Try
-            If Not Me.ThreadSplit.ThreadState = Threading.ThreadState.Unstarted And Not Me.ThreadSplit.ThreadState = Threading.ThreadState.Aborted And Not Me.ThreadSplit.ThreadState = Threading.ThreadState.Stopped Then
-                Dim answer = MessageBox.Show(My.Resources.ResourceManager.GetObject(LanguageResource & "01"), My.Settings.Version, MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1)
-                If answer = MsgBoxResult.Yes Then
-                    Me.Set_Folder_Access(Me.SelectedDirectory, FolderAccess.Create + FolderAccess.Write + FolderAccess.Delete, Action.Allow)
-                    Me.Kill_Process("Splitty_7zip")
-                    Me.Kill_Process("Splitty_WinRar")
-                    Me.Kill_Process("Splitty_Piso")
-                    Try : Me.ThreadSplit.Abort() : Catch : End Try
-                    End
-                Else
-                    e.Cancel = True
-                End If
-            Else
-                Me.Set_Folder_Access(Me.SelectedDirectory, FolderAccess.Create + FolderAccess.Write + FolderAccess.Delete, Action.Allow)
+        If Me.ThreadSplit IsNot Nothing AndAlso Me.ThreadSplit.IsAlive Then
+            Dim answer As DialogResult = MessageBox.Show(My.Resources.ResourceManager.GetString(LanguageResource & "01"), My.Settings.Version, MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1)
+            If answer = DialogResult.Yes Then
+                Me.WantToCancelThread = True
+                Me.Kill_Process("Splitty_7zip")
+                Me.Kill_Process("Splitty_WinRar")
+                Me.Kill_Process("Splitty_Piso")
                 Try : Me.ThreadSplit.Abort() : Catch : End Try
+                Me.Unlock_Locked_Directory()
+                End
+            Else
+                e.Cancel = True
             End If
-        Catch
-        End Try
+        Else
+            Me.Unlock_Locked_Directory()
+        End If
+
+
+    End Sub
+
+    ''' <summary>
+    ''' Raises the HandleCreated event and applies the dark title bar if the user's system theme is set to dark.
+    ''' </summary>
+    ''' <param name="e">An EventArgs that contains the event data.</param>
+    Protected Overrides Sub OnHandleCreated(e As EventArgs)
+        MyBase.OnHandleCreated(e)
+        Main.ApplyDarkTitleBar(Me.Handle)
     End Sub
 
 #End Region
@@ -93,35 +125,8 @@
         Dim selectFolder As New Ookii.Dialogs.VistaFolderBrowserDialog With {
             .ShowNewFolderButton = True
         }
-        If selectFolder.ShowDialog.ToString() = "OK" Then
-            If selectFolder.SelectedPath = Me.SelectedOutputDirectory Then
-                MessageBox.Show(My.Resources.ResourceManager.GetObject(LanguageResource & "04"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop, MessageBoxDefaultButton.Button1)
-                Me.SelectedDirectory = Nothing
-                Me.Button_Split.Enabled = False
-                Me.GroupPanel_Options.Enabled = False
-                Me.GroupBox_Mode.Enabled = False
-                Me.GroupBox_Information.Enabled = False
-                Me.Label_Size_Value.Text = "0"
-                Me.Label_Discs_Value.Text = "0"
-                Exit Sub
-            End If
-            Me.SelectedDirectory = (selectFolder.SelectedPath)
-            Me.Create_FileSystemWatcher(Me.SelectedDirectory)
-            Me.TextBox_Input_Folder.Text = Me.SelectedDirectory
-            Me.SelectedDirSizeBytes = Me.Get_Directory_Size(New IO.DirectoryInfo(Me.SelectedDirectory), True) ' Set Bytes of directory size
-            Me.SelectedDirSizeConvertedBytes = Me.Round_Bytes(Me.SelectedDirSizeBytes) ' Set MB or GB or TB of directory size
-            Me.Label_Size_Value.Text = Me.SelectedDirSizeConvertedBytes ' & "   (" & Selected_Dir_Size_Bytes & " Bytes)"
-            Me.Button_Output_Folder.Enabled = True
-            Me.TextBox_Output_Folder.Enabled = True
-            Me.GroupPanel_Options.Enabled = True
-            Me.GroupBox_Mode.Enabled = True
-            Me.RadioButton_CD.Checked = False
-            Me.RadioButton_CD.Checked = True
-            Me.Label_Discs_Name.Visible = True
-            Me.Label_Discs_Value.Visible = True
-            Me.Label_Size_Name.Visible = True
-            Me.Label_Size_Value.Visible = True
-            Me.TextBox_Output_Folder.HintDetails.HintText = My.Resources.ResourceManager.GetObject(LanguageResource & "02")
+        If selectFolder.ShowDialog() = DialogResult.OK Then
+            Me.Select_Input_Directory(selectFolder.SelectedPath)
         End If
         Me.Flush_Memory(Application.ExecutablePath)
     End Sub
@@ -131,29 +136,115 @@
         Dim selectFolder As New Ookii.Dialogs.VistaFolderBrowserDialog With {
             .ShowNewFolderButton = True
         }
-        If selectFolder.ShowDialog.ToString() = "OK" Then
-            If selectFolder.SelectedPath = Me.SelectedDirectory Then
-                MessageBox.Show(My.Resources.ResourceManager.GetObject(LanguageResource & "03"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop, MessageBoxDefaultButton.Button1)
-                Me.SelectedOutputDirectory = Nothing
-                Exit Sub
-            End If
-            Me.SelectedOutputDirectory = (selectFolder.SelectedPath)
-            Me.TextBox_Output_Folder.Text = Me.SelectedOutputDirectory
-
-            If Me.RadioButton_Custom_Size.Checked = True Then
-                If Not Me.TextBox_Custom_Size.Text = 0 Then
-                    Me.Button_Split.Enabled = True
-                    Me.Button_Split.ForeColor = Color.Black
-                    Me.Button_Split.Enabled = True
-                End If
-            Else
-                Me.Button_Split.Image = My.Resources.split
-                Me.Button_Split.ForeColor = Color.Black
-                Me.Button_Split.Enabled = True
-            End If
-
+        If selectFolder.ShowDialog() = DialogResult.OK Then
+            Me.Select_Output_Directory(selectFolder.SelectedPath)
         End If
         Me.Flush_Memory(Application.ExecutablePath)
+    End Sub
+
+    ''' <summary>
+    ''' Validates and applies a new input (source) directory.
+    ''' </summary>
+    ''' <param name="directoryPath">The selected directory.</param>
+    Private Sub Select_Input_Directory(directoryPath As String)
+
+        If Not String.IsNullOrEmpty(Me.SelectedOutputDirectory) Then
+            If SplitPaths.AreSameDirectory(directoryPath, Me.SelectedOutputDirectory) Then
+                MessageBox.Show(My.Resources.ResourceManager.GetString(LanguageResource & "04"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop, MessageBoxDefaultButton.Button1)
+                Me.Reset_Input_Selection()
+                Exit Sub
+            End If
+            If SplitPaths.IsSameOrInside(Me.SelectedOutputDirectory, directoryPath) Then
+                MessageBox.Show(My.Resources.ResourceManager.GetString(LanguageResource & "33"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop, MessageBoxDefaultButton.Button1)
+                Me.Reset_Input_Selection()
+                Exit Sub
+            End If
+        End If
+
+        Dim directorySize As Long
+        Try
+            directorySize = DirectoryScanner.GetDirectorySize(directoryPath)
+        Catch ex As Exception When TypeOf ex Is UnauthorizedAccessException OrElse TypeOf ex Is IO.IOException OrElse TypeOf ex Is Security.SecurityException
+            MessageBox.Show(ex.Message, My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop, MessageBoxDefaultButton.Button1)
+            Me.Reset_Input_Selection()
+            Exit Sub
+        End Try
+
+        Me.SelectedDirectory = directoryPath
+        Me.Create_FileSystemWatcher(Me.SelectedDirectory)
+        Me.Set_Input_Directory_Size(directorySize)
+        Me.Button_Output_Folder.Enabled = True
+        Me.TextBox_Output_Folder.Enabled = True
+        Me.GroupPanel_Options.Enabled = True
+        Me.GroupBox_Mode.Enabled = True
+        Me.RadioButton_CD.Checked = False
+        Me.RadioButton_CD.Checked = True
+        Me.Label_Discs_Name.Visible = True
+        Me.Label_Discs_Value.Visible = True
+        Me.Label_Size_Name.Visible = True
+        Me.Label_Size_Value.Visible = True
+        Me.TextBox_Output_Folder.HintDetails.HintText = My.Resources.ResourceManager.GetString(LanguageResource & "02")
+        Me.Update_Split_Button_State()
+
+    End Sub
+
+    ''' <summary>
+    ''' Clears the input directory selection and disables the controls that depend on it.
+    ''' </summary>
+    Private Sub Reset_Input_Selection()
+
+        Me.SelectedDirectory = Nothing
+        Me.Button_Split.Enabled = False
+        Me.GroupPanel_Options.Enabled = False
+        Me.GroupBox_Mode.Enabled = False
+        Me.GroupBox_Information.Enabled = False
+        Me.Label_Size_Value.Text = "0"
+        Me.Label_Discs_Value.Text = "0"
+
+    End Sub
+
+    ''' <summary>
+    ''' Validates and applies a new output directory.
+    ''' </summary>
+    ''' <param name="directoryPath">The selected directory.</param>
+    Private Sub Select_Output_Directory(directoryPath As String)
+
+        If Not String.IsNullOrEmpty(Me.SelectedDirectory) Then
+            If SplitPaths.AreSameDirectory(directoryPath, Me.SelectedDirectory) Then
+                MessageBox.Show(My.Resources.ResourceManager.GetString(LanguageResource & "03"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop, MessageBoxDefaultButton.Button1)
+                Me.SelectedOutputDirectory = Nothing
+                Me.Update_Split_Button_State()
+                Exit Sub
+            End If
+            ' The source directory is locked (write-denied, inherited) while splitting,
+            ' so the output directory cannot be inside it.
+            If SplitPaths.IsSameOrInside(directoryPath, Me.SelectedDirectory) Then
+                MessageBox.Show(My.Resources.ResourceManager.GetString(LanguageResource & "33"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop, MessageBoxDefaultButton.Button1)
+                Me.SelectedOutputDirectory = Nothing
+                Me.Update_Split_Button_State()
+                Exit Sub
+            End If
+        End If
+
+        Me.SelectedOutputDirectory = directoryPath
+        Me.Update_Split_Button_State()
+
+    End Sub
+
+    ''' <summary>
+    ''' Enables the split button only when input directory, output directory and a valid disc size are set.
+    ''' </summary>
+    Private Sub Update_Split_Button_State()
+
+        Dim ready As Boolean = Not String.IsNullOrEmpty(Me.SelectedDirectory) AndAlso
+                               Not String.IsNullOrEmpty(Me.SelectedOutputDirectory) AndAlso
+                               Me.SelectedDiscBytes > 0
+        If ready Then
+            Me.Button_Split.Image = My.Resources.split
+            Me.Button_Split.ForeColor = Color.Black
+        End If
+        Me.Button_Split.Enabled = ready
+
     End Sub
 
 #End Region
@@ -184,24 +275,24 @@
 
 
     Private Sub Change_Lang()
-        Me.Label_Input.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "11")
-        Me.Label_Output.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "12")
-        Me.Label_Capacity.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "13")
-        Me.Label_Mode.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "14")
-        Me.Label_Information.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "15")
-        Me.Label_Size_Name.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "16")
-        Me.Label_Discs_Name.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "17")
-        Me.Button_Split.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "18")
-        Me.Button_Stop.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "19")
-        Me.RadioButton_Copy.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "20")
-        Me.RadioButton_Custom_Size.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "21")
-        Me.AboutToolStripMenuItem.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "22")
-        Me.LanguageToolStripMenuItem.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "23")
-        Me.EnglishToolStripMenuItem.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "24")
-        Me.SpanishToolStripMenuItem.Text = My.Resources.ResourceManager.GetObject(LanguageResource & "25")
-        Me.TextBox_Input_Folder.HintDetails.HintText = My.Resources.ResourceManager.GetObject(LanguageResource & "02")
-        If Not Me.TextBox_Output_Folder.HintDetails.HintText = "" Then Me.TextBox_Output_Folder.HintDetails.HintText = My.Resources.ResourceManager.GetObject(LanguageResource & "02")
-        If Not Me.Label_Discs_Value.Text = Nothing Then Me.Label_Discs_Value.Text = Math.Ceiling((Me.SelectedDirSizeBytes / Me.SelectedDiscBytes)) & My.Resources.ResourceManager.GetObject(LanguageResource & "26")
+        Me.Label_Input.Text = My.Resources.ResourceManager.GetString(LanguageResource & "11")
+        Me.Label_Output.Text = My.Resources.ResourceManager.GetString(LanguageResource & "12")
+        Me.Label_Capacity.Text = My.Resources.ResourceManager.GetString(LanguageResource & "13")
+        Me.Label_Mode.Text = My.Resources.ResourceManager.GetString(LanguageResource & "14")
+        Me.Label_Information.Text = My.Resources.ResourceManager.GetString(LanguageResource & "15")
+        Me.Label_Size_Name.Text = My.Resources.ResourceManager.GetString(LanguageResource & "16")
+        Me.Label_Discs_Name.Text = My.Resources.ResourceManager.GetString(LanguageResource & "17")
+        Me.Button_Split.Text = My.Resources.ResourceManager.GetString(LanguageResource & "18")
+        Me.Button_Stop.Text = My.Resources.ResourceManager.GetString(LanguageResource & "19")
+        Me.RadioButton_Copy.Text = My.Resources.ResourceManager.GetString(LanguageResource & "20")
+        Me.RadioButton_Custom_Size.Text = My.Resources.ResourceManager.GetString(LanguageResource & "21")
+        Me.AboutToolStripMenuItem.Text = My.Resources.ResourceManager.GetString(LanguageResource & "22")
+        Me.LanguageToolStripMenuItem.Text = My.Resources.ResourceManager.GetString(LanguageResource & "23")
+        Me.EnglishToolStripMenuItem.Text = My.Resources.ResourceManager.GetString(LanguageResource & "24")
+        Me.SpanishToolStripMenuItem.Text = My.Resources.ResourceManager.GetString(LanguageResource & "25")
+        Me.TextBox_Input_Folder.HintDetails.HintText = My.Resources.ResourceManager.GetString(LanguageResource & "02")
+        If Not Me.TextBox_Output_Folder.HintDetails.HintText = "" Then Me.TextBox_Output_Folder.HintDetails.HintText = My.Resources.ResourceManager.GetString(LanguageResource & "02")
+        Me.Update_Discs_Label()
     End Sub
 
 #End Region
@@ -213,68 +304,24 @@
         If e.Data.GetDataPresent(DataFormats.FileDrop) Then
             Dim folderObject As String() = e.Data.GetData(DataFormats.FileDrop)
             If System.IO.Directory.Exists(folderObject(0)) Then
-                Me.TextBox_Input_Folder.Text = folderObject(0)
-                Me.SelectedDirectory = folderObject(0)
-                If Me.SelectedDirectory = Me.SelectedOutputDirectory Then
-                    MessageBox.Show(My.Resources.ResourceManager.GetObject(LanguageResource & "04"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop, MessageBoxDefaultButton.Button1)
-                    Me.SelectedDirectory = Nothing
-                    Me.Button_Split.Enabled = False
-                    Me.GroupPanel_Options.Enabled = False
-                    Me.GroupBox_Mode.Enabled = False
-                    Me.GroupBox_Information.Enabled = False
-                    Me.Label_Size_Value.Text = "0"
-                    Me.Label_Discs_Value.Text = "0"
-                    Exit Sub
-                End If
-                Me.Create_FileSystemWatcher(Me.SelectedDirectory)
-                Me.SelectedDirSizeBytes = Me.Get_Directory_Size(New IO.DirectoryInfo(Me.SelectedDirectory), True) ' Set Bytes of directory size
-                Me.SelectedDirSizeConvertedBytes = Me.Round_Bytes(Me.SelectedDirSizeBytes) ' Set MB or GB or TB of directory size
-                Me.Label_Size_Value.Text = Me.SelectedDirSizeConvertedBytes '& "   (" & Selected_Dir_Size_Bytes & " Bytes)"
-                Me.Button_Output_Folder.Enabled = True
-                Me.TextBox_Output_Folder.Enabled = True
-                Me.GroupPanel_Options.Enabled = True
-                Me.GroupBox_Mode.Enabled = True
-                Me.RadioButton_CD.Checked = False
-                Me.RadioButton_CD.Checked = True
-                Me.Label_Discs_Name.Visible = True
-                Me.Label_Discs_Value.Visible = True
-                Me.Label_Size_Name.Visible = True
-                Me.Label_Size_Value.Visible = True
-                Me.TextBox_Output_Folder.HintDetails.HintText = My.Resources.ResourceManager.GetObject(LanguageResource & "02")
+                Me.Select_Input_Directory(folderObject(0))
             Else
-                MessageBox.Show(My.Resources.ResourceManager.GetObject(LanguageResource & "05"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop)
+                MessageBox.Show(My.Resources.ResourceManager.GetString(LanguageResource & "05"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop)
             End If
         End If
+        Me.Flush_Memory(Application.ExecutablePath)
     End Sub
 
     Private Sub Output_Folder_DragDrop(sender As Object, e As System.Windows.Forms.DragEventArgs) Handles TextBox_Output_Folder.DragDrop
         If e.Data.GetDataPresent(DataFormats.FileDrop) Then
             Dim folderObject As String() = e.Data.GetData(DataFormats.FileDrop)
             If System.IO.Directory.Exists(folderObject(0)) Then
-                Me.SelectedOutputDirectory = (folderObject(0))
-                Me.TextBox_Output_Folder.Text = Me.SelectedOutputDirectory
-                If Me.SelectedOutputDirectory = Me.SelectedDirectory Then
-                    MessageBox.Show(My.Resources.ResourceManager.GetObject(LanguageResource & "03"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop, MessageBoxDefaultButton.Button1)
-                    Me.SelectedOutputDirectory = Nothing
-                    Exit Sub
-                End If
-                If Me.RadioButton_Custom_Size.Checked = True Then
-                    If Not Me.TextBox_Custom_Size.Text = 0 Then
-                        Me.Button_Split.Enabled = True
-                        Me.Button_Split.ForeColor = Color.Black
-                        Me.Button_Split.Enabled = True
-                    End If
-                Else
-                    Me.Button_Split.Image = My.Resources.split
-                    Me.Button_Split.ForeColor = Color.Black
-                    Me.Button_Split.Enabled = True
-                End If
-
+                Me.Select_Output_Directory(folderObject(0))
+            Else
+                MessageBox.Show(My.Resources.ResourceManager.GetString(LanguageResource & "05"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop)
             End If
-            Me.Flush_Memory(Application.ExecutablePath)
-        Else
-            MessageBox.Show(My.Resources.ResourceManager.GetObject(LanguageResource & "05"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop)
         End If
+        Me.Flush_Memory(Application.ExecutablePath)
     End Sub
 
 
@@ -288,23 +335,66 @@
 #Region " FileSystem Watcher "
 
     Private Sub Create_FileSystemWatcher(path As String)
+        ' The event handlers are attached once, with the "Handles" clause of Watcher_Changed.
+        ' (Before, a new set of handlers was added each time a folder was selected, so the
+        '  reload question was shown several times per change.)
         Me.FileSystemWatcher1.Path = path
-        'AddHandler FileSystemWatcher1.Changed, AddressOf Watcher_Changed
-        AddHandler Me.FileSystemWatcher1.Created, AddressOf Me.Watcher_Changed
-        AddHandler Me.FileSystemWatcher1.Deleted, AddressOf Me.Watcher_Changed
-        AddHandler Me.FileSystemWatcher1.Renamed, AddressOf Me.Watcher_Changed
     End Sub
 
-    Private Sub Watcher_Changed(sender As Object, e As System.IO.FileSystemEventArgs)
-        If Me.Button_Split.Visible Then
-            Dim answer = MessageBox.Show(My.Resources.ResourceManager.GetObject(LanguageResource & "32"), My.Settings.Version, MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1)
-            If answer = MsgBoxResult.Yes Then
-                Me.SelectedDirSizeBytes = Me.Get_Directory_Size(New IO.DirectoryInfo(Me.SelectedDirectory), True) ' Set Bytes of directory size
-                Me.SelectedDirSizeConvertedBytes = Me.Round_Bytes(Me.SelectedDirSizeBytes) ' Set MB or GB or TB of directory size
-                Me.Label_Size_Value.Text = Me.SelectedDirSizeConvertedBytes ' & "   (" & Selected_Dir_Size_Bytes & " Bytes)"
-                Me.Label_Discs_Value.Text = Math.Ceiling((Me.SelectedDirSizeBytes / Me.SelectedDiscBytes)) & " " & Me.Label_Discs_Value.Text.Split(" ")(1)
-            End If
+    Private Sub Watcher_Changed(sender As Object, e As System.IO.FileSystemEventArgs) Handles FileSystemWatcher1.Created, FileSystemWatcher1.Deleted, FileSystemWatcher1.Renamed
+        If Not Me.Button_Split.Visible OrElse Me.isAskingReload OrElse String.IsNullOrEmpty(Me.SelectedDirectory) Then
+            Exit Sub
         End If
+
+        Me.isAskingReload = True
+        Try
+            Dim answer As DialogResult = MessageBox.Show(My.Resources.ResourceManager.GetString(LanguageResource & "32"), My.Settings.Version, MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1)
+            If answer = DialogResult.Yes Then
+                Try
+                    Me.Set_Input_Directory_Size(DirectoryScanner.GetDirectorySize(Me.SelectedDirectory))
+                Catch ex As Exception When TypeOf ex Is UnauthorizedAccessException OrElse TypeOf ex Is IO.IOException OrElse TypeOf ex Is Security.SecurityException
+                    MessageBox.Show(ex.Message, My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Stop, MessageBoxDefaultButton.Button1)
+                End Try
+            End If
+        Finally
+            Me.isAskingReload = False
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' Sets the size of the input directory and updates the related labels.
+    ''' </summary>
+    ''' <param name="directorySize">The directory size, in bytes.</param>
+    Private Sub Set_Input_Directory_Size(directorySize As Long)
+
+        Me.SelectedDirSizeBytes = directorySize
+        Me.SelectedDirSizeConvertedBytes = ByteSizeFormatter.Format(Me.SelectedDirSizeBytes)
+        Me.Label_Size_Value.Text = Me.SelectedDirSizeConvertedBytes
+        Me.Update_Discs_Label()
+
+    End Sub
+
+    ''' <summary>
+    ''' Updates the label that shows the number of discs needed for the selected disc size.
+    ''' </summary>
+    Private Sub Update_Discs_Label()
+
+        Dim discCount As Long = If(Me.SelectedDiscBytes > 0,
+                                   DiscCapacity.CalculateDiscCount(Me.SelectedDirSizeBytes, Me.SelectedDiscBytes),
+                                   0L)
+        Dim suffix As String
+        Select Case Me.SelectedDiscFormat
+            Case "CD", "CD800", "CD900"
+                suffix = " CD's"
+            Case "DVD5", "DVD9", "DVD10"
+                suffix = " DVD's"
+            Case "BR", "BR-DL", "BR-MD"
+                suffix = " BluRays"
+            Case Else
+                suffix = My.Resources.ResourceManager.GetString(LanguageResource & "26")
+        End Select
+        Me.Label_Discs_Value.Text = $"{discCount}{suffix}"
+
     End Sub
 
 #End Region
@@ -312,93 +402,64 @@
 #Region " Radio buttons Capacity "
 
     Private Sub RadioButton_CD_Click(sender As Object, e As EventArgs) Handles RadioButton_CD.CheckedChanged
-        If Me.RadioButton_CD.Checked = True Then
-            Me.SelectedDiscFormat = "CD"
-            Me.SelectedDiscBytes = 734003200
-            Me.PictureBox_Disc.BackgroundImage = My.Resources.cd
-            Me.Label_Discs_Value.Text = Math.Ceiling((Me.Convert_To_Disc_Size(Me.SelectedDirSizeBytes, SizeType.Bytes, DiscType.CD))) & " CD's"
-        End If
+        If Me.RadioButton_CD.Checked Then Me.Select_Disc_Type(DiscType.CD, "CD", My.Resources.cd)
         Me.Flush_Memory(Application.ExecutablePath)
     End Sub
 
     Private Sub RadioButton_CD800_Click(sender As Object, e As EventArgs) Handles RadioButton_CD800.CheckedChanged
-        If Me.RadioButton_CD800.Checked = True Then
-            Me.SelectedDiscFormat = "CD800"
-            Me.SelectedDiscBytes = 829440393.216
-            Me.PictureBox_Disc.BackgroundImage = My.Resources.cd
-            Me.Label_Discs_Value.Text = Math.Ceiling((Me.Convert_To_Disc_Size(Me.SelectedDirSizeBytes, SizeType.Bytes, DiscType.CD800MB))) & Me.SelectedDiscFormatLabel & " CD's"
-        End If
+        If Me.RadioButton_CD800.Checked Then Me.Select_Disc_Type(DiscType.CD800MB, "CD800", My.Resources.cd)
         Me.Flush_Memory(Application.ExecutablePath)
     End Sub
 
     Private Sub RadioButton_CD900_Click(sender As Object, e As EventArgs) Handles RadioButton_CD900.CheckedChanged
-        If Me.RadioButton_CD900.Checked = True Then
-            Me.SelectedDiscFormat = "CD900"
-            Me.SelectedDiscBytes = 912383803.392
-            Me.PictureBox_Disc.BackgroundImage = My.Resources.cd
-            Me.Label_Discs_Value.Text = Math.Ceiling((Me.Convert_To_Disc_Size(Me.SelectedDirSizeBytes, SizeType.Bytes, DiscType.CD900MB))) & Me.SelectedDiscFormatLabel & " CD's"
-        End If
+        If Me.RadioButton_CD900.Checked Then Me.Select_Disc_Type(DiscType.CD900MB, "CD900", My.Resources.cd)
         Me.Flush_Memory(Application.ExecutablePath)
     End Sub
 
     Private Sub RadioButtonDvd5Click(sender As Object, e As EventArgs) Handles RadioButton_DVD5.CheckedChanged
-        If Me.RadioButton_DVD5.Checked = True Then
-            Me.SelectedDiscFormat = "DVD5"
-            Me.SelectedDiscBytes = 4700000000
-            Me.PictureBox_Disc.BackgroundImage = My.Resources.dvd
-            Me.Label_Discs_Value.Text = Math.Ceiling((Me.Convert_To_Disc_Size(Me.SelectedDirSizeBytes, SizeType.Bytes, DiscType.Dvd5))) & Me.SelectedDiscFormatLabel & " DVD's"
-        End If
+        If Me.RadioButton_DVD5.Checked Then Me.Select_Disc_Type(DiscType.Dvd5, "DVD5", My.Resources.dvd)
         Me.Flush_Memory(Application.ExecutablePath)
     End Sub
 
     Private Sub RadioButtonDvd9Click(sender As Object, e As EventArgs) Handles RadioButton_DVD9.CheckedChanged
-        If Me.RadioButton_DVD9.Checked = True Then
-            Me.SelectedDiscFormat = "DVD9"
-            Me.SelectedDiscBytes = 8500000000
-            Me.PictureBox_Disc.BackgroundImage = My.Resources.dvd
-            Me.Label_Discs_Value.Text = Math.Ceiling((Me.Convert_To_Disc_Size(Me.SelectedDirSizeBytes, SizeType.Bytes, DiscType.Dvd9))) & Me.SelectedDiscFormatLabel & " DVD's"
-        End If
+        If Me.RadioButton_DVD9.Checked Then Me.Select_Disc_Type(DiscType.Dvd9, "DVD9", My.Resources.dvd)
         Me.Flush_Memory(Application.ExecutablePath)
     End Sub
 
     Private Sub RadioButtonDvd10Click(sender As Object, e As EventArgs) Handles RadioButton_DVD10.CheckedChanged
-        If Me.RadioButton_DVD10.Checked = True Then
-            Me.SelectedDiscFormat = "DVD10"
-            Me.SelectedDiscBytes = 9395240960
-            Me.PictureBox_Disc.BackgroundImage = My.Resources.dvd
-            Me.Label_Discs_Value.Text = Math.Ceiling((Me.Convert_To_Disc_Size(Me.SelectedDirSizeBytes, SizeType.Bytes, DiscType.Dvd10))) & Me.SelectedDiscFormatLabel & " DVD's"
-        End If
+        If Me.RadioButton_DVD10.Checked Then Me.Select_Disc_Type(DiscType.Dvd10, "DVD10", My.Resources.dvd)
         Me.Flush_Memory(Application.ExecutablePath)
     End Sub
 
     Private Sub RadioButton_BluRay_Click(sender As Object, e As EventArgs) Handles RadioButton_BluRay.CheckedChanged
-        If Me.RadioButton_BluRay.Checked = True Then
-            Me.SelectedDiscFormat = "BR"
-            Me.SelectedDiscBytes = 25025314816
-            Me.PictureBox_Disc.BackgroundImage = My.Resources.bluray
-            Me.Label_Discs_Value.Text = Math.Ceiling((Me.Convert_To_Disc_Size(Me.SelectedDirSizeBytes, SizeType.Bytes, DiscType.BR))) & Me.SelectedDiscFormatLabel & " BluRays"
-        End If
+        If Me.RadioButton_BluRay.Checked Then Me.Select_Disc_Type(DiscType.BR, "BR", My.Resources.bluray)
         Me.Flush_Memory(Application.ExecutablePath)
     End Sub
 
     Private Sub RadioButton_BluRay_DL_Click(sender As Object, e As EventArgs) Handles RadioButton_BluRay_DL.CheckedChanged
-        If Me.RadioButton_BluRay_DL.Checked = True Then
-            Me.SelectedDiscFormat = "BR-DL"
-            Me.SelectedDiscBytes = 50050629632
-            Me.PictureBox_Disc.BackgroundImage = My.Resources.bluray
-            Me.Label_Discs_Value.Text = Math.Ceiling((Me.Convert_To_Disc_Size(Me.SelectedDirSizeBytes, SizeType.Bytes, DiscType.BRDoubleLayer))) & Me.SelectedDiscFormatLabel & " BluRays"
-        End If
+        If Me.RadioButton_BluRay_DL.Checked Then Me.Select_Disc_Type(DiscType.BRDoubleLayer, "BR-DL", My.Resources.bluray)
         Me.Flush_Memory(Application.ExecutablePath)
     End Sub
 
     Private Sub RadioButton_BluRay_MiniDisc_CheckedChanged(sender As Object, e As EventArgs) Handles RadioButton_BluRay_MiniDisc.CheckedChanged
-        If Me.RadioButton_BluRay_MiniDisc.Checked = True Then
-            Me.SelectedDiscFormat = "BR-MD"
-            Me.SelectedDiscBytes = 7791181824
-            Me.PictureBox_Disc.BackgroundImage = My.Resources.bluray
-            Me.Label_Discs_Value.Text = Math.Ceiling((Me.Convert_To_Disc_Size(Me.SelectedDirSizeBytes, SizeType.Bytes, DiscType.BRMiniDisc))) & Me.SelectedDiscFormatLabel & " BluRays"
-        End If
+        If Me.RadioButton_BluRay_MiniDisc.Checked Then Me.Select_Disc_Type(DiscType.BRMiniDisc, "BR-MD", My.Resources.bluray)
         Me.Flush_Memory(Application.ExecutablePath)
+    End Sub
+
+    ''' <summary>
+    ''' Applies a standard disc format as the selected disc size.
+    ''' </summary>
+    ''' <param name="discType">The disc format.</param>
+    ''' <param name="formatName">The internal format name.</param>
+    ''' <param name="image">The image that represents the disc format.</param>
+    Private Sub Select_Disc_Type(discType As DiscType, formatName As String, image As Image)
+
+        Me.SelectedDiscFormat = formatName
+        Me.SelectedDiscBytes = DiscCapacity.GetCapacity(discType)
+        Me.PictureBox_Disc.BackgroundImage = image
+        Me.Update_Discs_Label()
+        Me.Update_Split_Button_State()
+
     End Sub
 
 #End Region
@@ -406,27 +467,27 @@
 #Region " Radio buttons Copy mode "
 
     Private Sub RadioButtonCopy(sender As Object, e As EventArgs) Handles RadioButton_Copy.CheckedChanged
-        Me.CopyMode = "Copy"
+        If Me.RadioButton_Copy.Checked Then Me.CopyMode = SplitMode.Copy
     End Sub
 
     Private Sub RadioButtonRar(sender As Object, e As EventArgs) Handles RadioButton_Rar.CheckedChanged
-        Me.CopyMode = "Rar"
+        If Me.RadioButton_Rar.Checked Then Me.CopyMode = SplitMode.Rar
     End Sub
 
     Private Sub RadioButtonZip(sender As Object, e As EventArgs) Handles RadioButton_Zip.CheckedChanged
-        Me.CopyMode = "Zip"
+        If Me.RadioButton_Zip.Checked Then Me.CopyMode = SplitMode.Zip
     End Sub
 
     Private Sub RadioButtonSfx(sender As Object, e As EventArgs) Handles RadioButton_SFX.CheckedChanged
-        Me.CopyMode = "Sfx"
+        If Me.RadioButton_SFX.Checked Then Me.CopyMode = SplitMode.Sfx
     End Sub
 
     Private Sub RadioButtonIso(sender As Object, e As EventArgs) Handles RadioButton_ISO.CheckedChanged
-        Me.CopyMode = "Iso"
+        If Me.RadioButton_ISO.Checked Then Me.CopyMode = SplitMode.Iso
     End Sub
 
     Private Sub RadioButtonTar(sender As Object, e As EventArgs) Handles RadioButton_TAR.CheckedChanged
-        Me.CopyMode = "Tar"
+        If Me.RadioButton_TAR.Checked Then Me.CopyMode = SplitMode.Tar
     End Sub
 
 #End Region
@@ -435,20 +496,17 @@
 
     ' RadioButton custom size
     Private Sub RadioButton_Custom(sender As Object, e As EventArgs) Handles RadioButton_Custom_Size.CheckedChanged
-        If Me.RadioButton_Custom_Size.Checked = True Then
+        If Me.RadioButton_Custom_Size.Checked Then
             Me.SelectedDiscFormat = "CUSTOM"
             Me.PictureBox_Disc.BackgroundImage = My.Resources.custom
             Me.TextBox_Custom_Size.Enabled = True
             Me.ComboBox_Custom_Size.Enabled = True
-            'TextBox_Custom_Size.HintDetails.HintText = "0123456789,"
 
-            If Me.ComboBox_Custom_Size.SelectedItem = Nothing Then
-                Me.Label_Discs_Value.Text = "0"
+            If Me.ComboBox_Custom_Size.SelectedIndex < 0 Then
                 Me.ComboBox_Custom_Size.SelectedIndex = 0
             End If
-            If Me.TextBox_Custom_Size.Text = 0 Or Me.SelectedOutputDirectory = Nothing Then Me.Button_Split.Enabled = False Else Me.Button_Split.Enabled = True
+            Me.Apply_Custom_Size()
         Else
-            If Me.SelectedOutputDirectory = Nothing Then Me.Button_Split.Enabled = False Else Me.Button_Split.Enabled = True
             Me.TextBox_Custom_Size.HintDetails.HintText = ""
             Me.TextBox_Custom_Size.Enabled = False
             Me.ComboBox_Custom_Size.Enabled = False
@@ -457,47 +515,46 @@
     End Sub
 
     ' Textbox custom size
-    Private Sub TextBox_Custom_Size_TextChanged(sender As Object, e As EventArgs) Handles TextBox_Custom_Size.TextChanged, RadioButton_Custom_Size.CheckedChanged
-        Me.TextBox_Custom_Size.Text = Me.TextBox_Custom_Size.Text.Replace(".", ",")
-
-        If Me.TextBox_Custom_Size.Text.Length = 0 Then Me.TextBox_Custom_Size.Text = 0
-
-        If Not Me.TextBox_Custom_Size.Text.Length = 0 Then
-            If Me.ComboBox_Custom_Size.SelectedIndex = 0 Then
-                Me.SelectedDiscBytes = (Me.TextBox_Custom_Size.Text * 1048576)
-            End If
-
-            If Me.ComboBox_Custom_Size.SelectedIndex = 1 Then
-                Me.SelectedDiscBytes = (Me.TextBox_Custom_Size.Text * 1073741824)
-            End If
-
-            If Me.ComboBox_Custom_Size.SelectedIndex = 2 Then
-                Me.SelectedDiscBytes = (Me.TextBox_Custom_Size.Text * 1099511627776)
-            End If
-
-            Me.Label_Discs_Value.Text = Math.Ceiling((Me.SelectedDirSizeBytes / Me.SelectedDiscBytes)) & My.Resources.ResourceManager.GetObject(LanguageResource & "26")
+    Private Sub TextBox_Custom_Size_TextChanged(sender As Object, e As EventArgs) Handles TextBox_Custom_Size.TextChanged
+        ' Setting the Text property raises this event again with the corrected text.
+        If Me.TextBox_Custom_Size.Text.Contains(".") Then
+            Me.TextBox_Custom_Size.Text = Me.TextBox_Custom_Size.Text.Replace(".", ",")
+            Exit Sub
+        End If
+        If Me.TextBox_Custom_Size.Text.Length = 0 Then
+            Me.TextBox_Custom_Size.Text = "0"
+            Exit Sub
         End If
 
-        If Me.SelectedOutputDirectory = Nothing Or Me.TextBox_Custom_Size.Text = 0 Then Me.Button_Split.Enabled = False Else Me.Button_Split.Enabled = True
+        If Me.RadioButton_Custom_Size.Checked Then
+            Me.Apply_Custom_Size()
+        End If
     End Sub
 
     ' Textbox custom size (Keypress)
     Private Sub TextBox_Custom_Size_KeyPress(sender As Object, e As System.Windows.Forms.KeyPressEventArgs) Handles TextBox_Custom_Size.KeyPress
-        e.Handled = Me.NumericOnly(e.KeyChar)
+        e.Handled = CustomSize.IsKeyRejected(e.KeyChar, Me.TextBox_Custom_Size.Text)
     End Sub
 
     ' ComboBox custom size
     Private Sub ComboBox_Custom_Size_SelectedIndexChanged(sender As Object, e As EventArgs) Handles ComboBox_Custom_Size.SelectedIndexChanged
-        If Me.ComboBox_Custom_Size.SelectedIndex = 0 Then
-            Me.SelectedDiscBytes = (Me.TextBox_Custom_Size.Text * 1048576)
+        If Me.RadioButton_Custom_Size.Checked Then
+            Me.Apply_Custom_Size()
         End If
-        If Me.ComboBox_Custom_Size.SelectedIndex = 1 Then
-            Me.SelectedDiscBytes = (Me.TextBox_Custom_Size.Text * 1073741824)
-        End If
-        If Me.ComboBox_Custom_Size.SelectedIndex = 2 Then
-            Me.SelectedDiscBytes = (Me.TextBox_Custom_Size.Text * 1099511627776)
-        End If
-        Me.Label_Discs_Value.Text = Math.Ceiling((Me.SelectedDirSizeBytes / Me.SelectedDiscBytes)) & " of custom storage"
+    End Sub
+
+    ''' <summary>
+    ''' Parses the custom size typed by the user and applies it as the selected disc size.
+    ''' An invalid or zero size disables the split button.
+    ''' </summary>
+    Private Sub Apply_Custom_Size()
+
+        Dim unit As CustomSizeUnit = CType(Math.Max(0, Me.ComboBox_Custom_Size.SelectedIndex), CustomSizeUnit)
+        Dim bytes As Long
+        Me.SelectedDiscBytes = If(CustomSize.TryParseBytes(Me.TextBox_Custom_Size.Text, unit, bytes), bytes, 0)
+        Me.Update_Discs_Label()
+        Me.Update_Split_Button_State()
+
     End Sub
 
 #End Region
@@ -509,9 +566,9 @@
 
         If Me.RadioButton_Custom_Size.Checked = True And Me.SelectedDiscBytes > Me.SelectedDirSizeBytes Then
             MessageBox.Show(
-                My.Resources.ResourceManager.GetObject(LanguageResource & "29") & vbNewLine & vbNewLine &
-                My.Resources.ResourceManager.GetObject(LanguageResource & "30") & Me.SelectedDirSizeConvertedBytes & vbNewLine &
-                My.Resources.ResourceManager.GetObject(LanguageResource & "31") & Me.Round_Bytes(Me.SelectedDiscBytes) _
+                My.Resources.ResourceManager.GetString(LanguageResource & "29") & vbNewLine & vbNewLine &
+                My.Resources.ResourceManager.GetString(LanguageResource & "30") & Me.SelectedDirSizeConvertedBytes & vbNewLine &
+                My.Resources.ResourceManager.GetString(LanguageResource & "31") & ByteSizeFormatter.Format(Me.SelectedDiscBytes) _
                 , My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Exclamation, MessageBoxDefaultButton.Button1)
             Exit Sub
         End If
@@ -519,6 +576,7 @@
         Dim tempImage = Me.PictureBox_Disc.BackgroundImage
         Me.PictureBox_Disc.BackgroundImage = Me.GrayScale_Image(Me.PictureBox_Disc.BackgroundImage, GrayScale.MidGray)
 
+        Me.splitError = Nothing
         Me.ThreadProcessIsCompleted = False
         Me.ThreadIsCompleted = False
         Me.ThreadSplit = New Threading.Thread(AddressOf Me.Split_Thread) With {
@@ -539,10 +597,14 @@
         Me.ThreadSplit.Start()
         While Not Me.ThreadIsCompleted = True
             Application.DoEvents()
+            Threading.Thread.Sleep(15) ' Avoids 100% CPU usage of the UI thread while waiting.
         End While
 
-        Me.Set_Folder_Access(Me.SelectedDirectory, FolderAccess.Create + FolderAccess.Write + FolderAccess.Delete, Action.Allow)
-        If Not Me.WantToCancelThread Then MessageBox.Show(My.Resources.ResourceManager.GetObject(LanguageResource & "09"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1)
+        If Me.splitError IsNot Nothing Then
+            MessageBox.Show($"{My.Resources.ResourceManager.GetString(LanguageResource & "34")}{vbNewLine}{vbNewLine}{Me.splitError.Message}", My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1)
+        ElseIf Not Me.WantToCancelThread Then
+            MessageBox.Show(My.Resources.ResourceManager.GetString(LanguageResource & "09"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1)
+        End If
         Me.InvokeControl(Me, Sub(x) x.Text = My.Settings.Version)
         Me.Set_TaskBar_Status(TaskBarStatus.Disabled)
 
@@ -566,14 +628,13 @@
     ' Button STOP
     Private Sub Button_Stop_ClickButtonArea(sender As Object, e As MouseEventArgs) Handles Button_Stop.ClickButtonArea
         Me.WantToCancelThread = True
-        Me.Set_Folder_Access(Me.SelectedDirectory, FolderAccess.Create + FolderAccess.Write + FolderAccess.Delete, Action.Allow)
         Me.Set_TaskBar_Value(100, 100)
         Me.InvokeControl(Me, Sub(x) x.Text = My.Settings.Version)
         Me.Set_TaskBar_Status(TaskBarStatus.Stopped)
         Me.Kill_Process("Splitty_7zip")
         Me.Kill_Process("Splitty_WinRar")
         Me.Kill_Process("Splitty_Piso")
-        MessageBox.Show(My.Resources.ResourceManager.GetObject(LanguageResource & "28"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1)
+        MessageBox.Show(My.Resources.ResourceManager.GetString(LanguageResource & "28"), My.Settings.Version, MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1)
         Me.Set_TaskBar_Value(0, 100)
         Me.InvokeControl(Me, Sub(x) x.Text = My.Settings.Version)
         Me.Set_TaskBar_Status(TaskBarStatus.Disabled)
@@ -591,230 +652,31 @@
 
 #End Region
 
-#Region " Functions "
+#Region " Methods "
 
-#Region " Get Directory Size Function "
+#Region " Folder Lock Functions "
 
-    Private Function Get_Directory_Size(directory As IO.DirectoryInfo, includeSubfolders As Boolean) As Long
-        Try
-            Dim dirTotalSize As Long = directory.EnumerateFiles().Sum(Function(file) file.Length)
-            If includeSubfolders Then dirTotalSize += directory.EnumerateDirectories().Sum(Function(dir) Me.Get_Directory_Size(dir, True))
-            Return dirTotalSize
-        Catch
-        End Try
-        Return Nothing
-    End Function
+    ''' <summary>
+    ''' Locks the source directory (see <see cref="FolderLock"/>) so its contents cannot be modified while splitting.
+    ''' </summary>
+    Private Sub Lock_Selected_Directory()
 
-#End Region
+        FolderLock.Lock(Me.SelectedDirectory)
+        Me.lockedDirectory = Me.SelectedDirectory
 
-#Region " Get All Files Function "
-
-    Public Sub Get_All_Files(aDir As IO.DirectoryInfo)
-        Dim nextDir As IO.DirectoryInfo
-        Me.WorkWithFilesInDir(aDir)
-        For Each nextDir In aDir.GetDirectories
-            Application.DoEvents()
-            Me.Get_All_Files(nextDir)
-        Next
     End Sub
 
-    Public Sub WorkWithFilesInDir(aDir As IO.DirectoryInfo)
-        Dim aFile As IO.FileInfo
-        For Each aFile In aDir.GetFiles()
-            Application.DoEvents()
-            Try
-                Me.FilesList.Add(aFile.DirectoryName & "|" & aFile.Name & "|" & aFile.Length)
-                Me.TotalFilesNumber += 1
-            Catch pathTooLongException As Exception
-                Dim answer = MessageBox.Show(pathTooLongException.Message, My.Settings.Version, MessageBoxButtons.AbortRetryIgnore, MessageBoxIcon.Stop, MessageBoxDefaultButton.Button1)
-                If answer = Windows.Forms.DialogResult.Abort Then
-                    Me.Button_Stop.PerformClick()
-                    Exit For
-                    Exit Sub
-                End If
-                If answer = Windows.Forms.DialogResult.Retry Then Me.Get_All_Files(New IO.DirectoryInfo(Me.SelectedDirectory))
-            End Try
-        Next
+    ''' <summary>
+    ''' Unlocks the source directory previously locked by <see cref="Lock_Selected_Directory"/>, if any.
+    ''' </summary>
+    Private Sub Unlock_Locked_Directory()
+
+        Dim directoryPath As String = Threading.Interlocked.Exchange(Me.lockedDirectory, Nothing)
+        If directoryPath IsNot Nothing AndAlso IO.Directory.Exists(directoryPath) Then
+            FolderLock.Unlock(directoryPath)
+        End If
+
     End Sub
-
-#End Region
-
-#Region " Convert Bytes Function "
-
-    Public Function Round_Bytes(byteSize As Long) As String
-
-        Dim sizeOfKB As Long = 1024 ' 1KB
-        Dim sizeOfMB As Long = 1048576 ' 1MB
-        Dim sizeOfGB As Long = 1073741824 ' 1GB
-        Dim sizeOfTB As Long = 1099511627776 ' 1TB
-        Dim sizeofPB As Long = 1125899906842624 ' 1PB
-
-        Dim tempFileSize As Double
-
-        If byteSize < sizeOfKB Then 'Filesize is in Bytes
-            tempFileSize = Me.Convert_Bytes(byteSize, ConvTo.B)
-            If tempFileSize = -1 Then Return Nothing
-            Return Math.Round(tempFileSize) & " bytes" 'Return our converted value
-
-        ElseIf byteSize >= sizeOfKB And byteSize < sizeOfMB Then 'Filesize is in Kilobytes
-            tempFileSize = Me.Convert_Bytes(byteSize, ConvTo.KB)
-            If tempFileSize = -1 Then Return Nothing
-            Return Math.Round(tempFileSize) & " KB"
-
-        ElseIf byteSize >= sizeOfMB And byteSize < sizeOfGB Then ' Filesize is in Megabytes
-            tempFileSize = Me.Convert_Bytes(byteSize, ConvTo.MB)
-            If tempFileSize = -1 Then Return Nothing
-            Return Math.Round(tempFileSize, 1) & " MB"
-
-        ElseIf byteSize >= sizeOfGB And byteSize < sizeOfTB Then 'Filesize is in Gigabytes
-            tempFileSize = Me.Convert_Bytes(byteSize, ConvTo.GB)
-            If tempFileSize = -1 Then Return Nothing
-            Return Math.Round(tempFileSize, 1) & " GB"
-
-        ElseIf byteSize >= sizeOfTB And byteSize < sizeofPB Then 'Filesize is in Terabytes
-            tempFileSize = Me.Convert_Bytes(byteSize, ConvTo.TB)
-            If tempFileSize = -1 Then Return Nothing
-            Return Math.Round(tempFileSize, 1) & " TB"
-        Else
-            Return Nothing 'Invalid filesize so return Nothing
-        End If
-    End Function
-
-    Public Function Convert_Bytes(bytes As Long, convertTo As ConvTo) As Double
-        If ConvTo.IsDefined(GetType(ConvTo), convertTo) Then
-            Return bytes / (1024 ^ convertTo)
-        Else
-            Return -1 'An invalid value was passed to this function so exit
-        End If
-    End Function
-
-    Public Enum ConvTo
-        'Enumerations for file size conversions
-        B = 0
-        KB = 1
-        MB = 2
-        GB = 3
-        TB = 4
-        PB = 5
-        EB = 6
-        ZI = 7
-        YI = 8
-    End Enum
-
-#End Region
-
-#Region " Convert To Disc Size Function "
-
-    Private Function Convert_To_Disc_Size(fileSize As Double, sizeType As SizeType, toDiscType As DiscType) As Double
-        Dim size As Double = Me.GetSize(toDiscType)
-        If (size < 0) Then Throw New ArgumentException("Tamaño de disco no localizado")
-        Return fileSize * DirectCast(sizeType, Long) / size
-    End Function
-
-    Enum SizeType As Long
-        Bytes = 1
-        Kilobytes = 1024
-        Megabytes = 1048576
-        Gigabytes = 1073741824
-        Terabytes = 1099511627776
-    End Enum
-
-    Enum DiscType
-        CD
-        CD800MB
-        CD900MB
-        Dvd5
-        Dvd9
-        Dvd10
-        BR
-        BRDoubleLayer
-        BRMiniDisc
-        BRMiniDiscDoubleLayer
-    End Enum
-
-    Private Function GetSize(discType As DiscType) As Double
-        Select Case discType
-            Case DiscType.CD : Return 734003200 ' CD Standard
-            Case DiscType.CD800MB : Return 829440393.216 ' CD 800 MB
-            Case DiscType.CD900MB : Return 912383803.392 ' CD 900 MB
-            Case DiscType.Dvd5 : Return 4700000000 ' DVD Standard (DVD5)
-            Case DiscType.Dvd9 : Return 8500000000 ' DVD Double Layer (DVD9)
-            Case DiscType.Dvd10 : Return 9395240960 ' DVD Double Layer (DVD10)
-            Case DiscType.BR : Return 25025314816 ' BluRay Standard
-            Case DiscType.BRDoubleLayer : Return 50050629632 ' BluRay Double Layer
-            Case DiscType.BRMiniDisc : Return 7791181824 ' BluRay MiniDisc Standard
-            Case DiscType.BRMiniDiscDoubleLayer : Return 15582363648 ' BluRay MiniDisc Double Layer
-            Case Else
-                Return -1 ' Por si se declara un nuevo valor en el enumerador sin especificar tamaño
-        End Select
-    End Function
-
-#End Region
-
-#Region " Copy File Function "
-
-    Private Function Copy_File(file As String, targetPath As String,
-                               Optional forceTargetPath As Boolean = False, Optional forceFileReplace As Boolean = False,
-                               Optional attributes As System.IO.FileAttributes = IO.FileAttributes.Normal)
-
-        Dim fileInformation = My.Computer.FileSystem.GetFileInfo(file) ' Get Input File Information
-
-        ' Directory
-        If Not forceTargetPath And Not My.Computer.FileSystem.DirectoryExists(targetPath) Then
-            Return False ' Target Directory don't exists
-        ElseIf forceTargetPath Then
-            Try
-                My.Computer.FileSystem.CreateDirectory(targetPath) ' Create directory
-            Catch ex As Exception
-                'Return False
-                Return ex.Message ' Directory can't be created maybe beacuse user permissions
-            End Try
-        End If
-
-        ' File
-        Try
-            My.Computer.FileSystem.CopyFile(file, targetPath & "\" & fileInformation.Name, forceFileReplace) ' Copies the file
-            If Not attributes = IO.FileAttributes.Normal Then My.Computer.FileSystem.GetFileInfo(targetPath & "\" & fileInformation.Name).Attributes = attributes ' Apply File Attributes
-            Return True ' File is copied OK
-        Catch ex As Exception
-            'Return False
-            Return ex.Message ' File can't be created maybe beacuse user permissions
-        End Try
-    End Function
-
-#End Region
-
-#Region " Get File Info Function "
-
-    Const FullName As String = "FullName"
-    Const DirectoryName As String = "DirectoryName"
-    Const FileName As String = "Name"
-    Const Extension As String = "Extension"
-    Const Length As String = "Length"
-
-    Private Function Get_File_Info(file As String, information As String)
-        Dim fileInformation = My.Computer.FileSystem.GetFileInfo(file)
-        If information = FullName Then Return fileInformation.FullName _
-            Else If information = DirectoryName Then Return fileInformation.DirectoryName _
-            Else If information = FileName Then Return fileInformation.Name _
-            Else If information = Extension Then Return fileInformation.Extension _
-            Else If information = Length Then Return fileInformation.Length
-        Return False
-    End Function
-
-#End Region
-
-#Region "Only numbers in textbox function"
-
-    Public Function NumericOnly(eChar As Char) As Boolean
-        Dim chkStr As String = "0123456789,"
-        If chkStr.IndexOf(eChar) > -1 OrElse eChar = vbBack Then
-            If eChar = Chr(44) And Me.TextBox_Custom_Size.Text.Contains(",") Then Return True
-            Return False
-        Else
-            Return True
-        End If
-    End Function
 
 #End Region
 
@@ -867,40 +729,6 @@
         imageGraphic.DrawImage(image, New Rectangle(0, 0, image.Width, image.Height), 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, imageAttributes)
         imageGraphic.Dispose()
         Return imageBitmap
-    End Function
-
-#End Region
-
-#Region " Delimit String Function "
-
-    Private Function Delimit_String(str As String, delimiterA As String, Optional delimiterB As String = "", Optional ignoreCase As Boolean = False, Optional leftOrRight As String = "Right") As String
-        Dim compareMethod As Integer = 0 ' Don't ignore case
-        If ignoreCase = True Then compareMethod = 1 ' Ignore Case
-
-        If Not leftOrRight.ToUpper = "LEFT" And Not leftOrRight.ToUpper = "RIGHT" _
-            Then Return False ' Returns false if the Left_Or_Right argument is in incorrect format
-
-        If compareMethod = 0 Then
-            If Not str.Contains(delimiterA) Or Not str.Contains(delimiterB) _
-                Then Return False ' Returns false if one of the delimiters in NormalCase can 't be found
-        Else
-            If Not str.ToUpper.Contains(delimiterA.ToUpper) Or Not str.ToUpper.Contains(delimiterB.ToUpper) _
-            Then Return False ' Returns false if one of the delimiters in IgnoreCase can 't be found
-        End If
-
-        Try
-            If leftOrRight.ToUpper = "LEFT" Then str = Split(str, delimiterA, , compareMethod)(0) _
-                Else If leftOrRight.ToUpper = "RIGHT" Then str = Split(str, delimiterA, , compareMethod)(1)
-
-            If delimiterB IsNot Nothing Then
-                If leftOrRight.ToUpper = "LEFT" Then str = Split(str, delimiterB, , compareMethod)(1) _
-                 Else If leftOrRight.ToUpper = "RIGHT" Then str = Split(str, delimiterB, , compareMethod)(0)
-            End If
-
-            Return str ' Returns the splitted string
-        Catch ex As Exception
-            Return ex.Message ' Returns exception if index is out of range
-        End Try
     End Function
 
 #End Region
@@ -1048,35 +876,57 @@
 
 #End Region
 
-#Region " Folder Access Function "
+#Region " Other "
+    ''' <summary>
+    ''' Applies the immersive dark mode attribute to the window's title bar.
+    ''' </summary>
+    ''' <param name="hwnd">The handle of the window.</param>
+    Friend Shared Sub ApplyDarkTitleBar(hwnd As IntPtr)
 
-    Public Enum FolderAccess
-        Create = System.Security.AccessControl.FileSystemRights.CreateDirectories + System.Security.AccessControl.FileSystemRights.CreateFiles
-        Delete = System.Security.AccessControl.FileSystemRights.Delete + System.Security.AccessControl.FileSystemRights.DeleteSubdirectoriesAndFiles
-        Write = System.Security.AccessControl.FileSystemRights.AppendData + System.Security.AccessControl.FileSystemRights.Write + Security.AccessControl.FileSystemRights.WriteAttributes + System.Security.AccessControl.FileSystemRights.WriteData + System.Security.AccessControl.FileSystemRights.WriteExtendedAttributes
-    End Enum
+        If hwnd = IntPtr.Zero Then
+            Throw New ArgumentNullException(NameOf(hwnd), "Window handle cannot be zero.")
+        End If
 
-    Public Enum Action
-        Allow = 0
-        Deny = 1
-    End Enum
+        If Not Main.IsWindowsDarkModeEnabled() Then
+            Exit Sub
+        End If
 
-    Private Function Set_Folder_Access(path As String, folderAccess As FolderAccess, action As Action) As Boolean
+        Dim useDarkMode As Integer = 1
+        Dim attributeSize As Integer = System.Runtime.InteropServices.Marshal.SizeOf(GetType(Integer))
+
+        ' DWMWA_USE_IMMERSIVE_DARK_MODE (Windows 10 version 2004 and later)
+        Const DWMWA_USE_IMMERSIVE_DARK_MODE As Integer = 20
+        Dim result As Integer = DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, useDarkMode, attributeSize)
+
+        ' If the API call fails, fallback to DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 (Windows 10 versions 1809 to 1909)
+        If result <> 0 Then
+            Const DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 As Integer = 19
+            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1, useDarkMode, attributeSize)
+        End If
+
+    End Sub
+
+    ''' <summary>
+    ''' Determines if the Windows dark theme is currently enabled for applications.
+    ''' </summary>
+    ''' <returns><see langword="True"/> if dark mode is enabled; otherwise, <see langword="False"/>.</returns>
+    Private Shared Function IsWindowsDarkModeEnabled() As Boolean
         Try
-            Dim folderInfo As New IO.DirectoryInfo(path)
-            Dim folderAcl As New System.Security.AccessControl.DirectorySecurity
-            folderAcl.AddAccessRule(
-                New System.Security.AccessControl.FileSystemAccessRule(
-                    My.User.Name,
-                    folderAccess,
-                    System.Security.AccessControl.InheritanceFlags.ContainerInherit Or System.Security.AccessControl.InheritanceFlags.ObjectInherit, System.Security.AccessControl.PropagationFlags.None,
-                    action))
-            folderInfo.SetAccessControl(folderAcl)
-            Return True
+            Using key As Microsoft.Win32.RegistryKey =
+                Microsoft.Win32.Registry.CurrentUser.OpenSubKey("Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+                If key Is Nothing Then
+                    Return False
+                End If
+
+                Dim value As Object = key.GetValue("AppsUseLightTheme")
+                Return value IsNot Nothing AndAlso CInt(value) = 0
+            End Using
         Catch ex As Exception
-            Throw New Exception(ex.Message)
-            ' Return False
+            ' Ignore.
+            ' Throw New InvalidOperationException("Failed to read Windows theme registry key to determine dark mode status.", ex)
+            Return False
         End Try
+
     End Function
 
 #End Region
@@ -1089,16 +939,41 @@
 
     Sub Split_Thread()
 
+        Try
+            Me.Split_Thread_Core()
+        Catch ex As Exception
+            Me.splitError = ex
+        Finally
+            ' Always restore the access to the source directory, even if the split failed.
+            Try
+                Me.Unlock_Locked_Directory()
+            Catch ex As Exception
+                If Me.splitError Is Nothing Then Me.splitError = ex
+            End Try
+            Me.ThreadProcessIsCompleted = False
+            Me.ThreadIsCompleted = True
+        End Try
+
+    End Sub
+
+    Private Sub Split_Thread_Core()
+
         Me.FilesList.Clear()
-        Me.CachedSize = 0
         Me.TotalFilesNumber = 0
         Me.Set_TaskBar_Value(0, 100)
         Me.Set_TaskBar_Status(TaskBarStatus.Normal)
 
+        ' The ISO overhead is applied to a local copy;
+        ' before, it was subtracted from SelectedDiscBytes on every ISO split, shrinking the disc size each time.
+        Dim discCapacityBytes As Long = Me.SelectedDiscBytes
+        If Me.CopyMode = SplitMode.Iso Then
+            discCapacityBytes -= DiscCapacity.IsoOverheadBytes
+        End If
+
         ' // Extract resources //
         '
         ' Extract - 7zip
-        If Not Me.CopyMode = "Copy" Then
+        If Not Me.CopyMode = SplitMode.Copy Then
             If Me.architecture = 32 Then
                 If Not IO.File.Exists(Me.TempDir & "Splitty_7zip.exe") Then Me.Load_Resource_To_Disk(My.Resources.Splitty_7zip_x86, Me.TempDir & "Splitty_7zip.exe")
                 If Not IO.File.Exists(Me.TempDir & "7z.dll") Then Me.Load_Resource_To_Disk(My.Resources._7z_x86, Me.TempDir & "7z.dll")
@@ -1109,37 +984,38 @@
         End If
 
         ' Extract - PowerISO
-        If Me.CopyMode = "Iso" Then
+        If Me.CopyMode = SplitMode.Iso Then
             If Not IO.File.Exists(Me.TempDir & "Splitty_Piso.exe") Then Me.Load_Resource_To_Disk(My.Resources.Splitty_PowerISO_x86, Me.TempDir & "Splitty_PowerISO.7z")
-            Me.SelectedDiscBytes -= 93491 ' Extra bytes needed to create the ISO file
             Dim powerIsoKey = Me.HexToByteArray("000a42494c4c2047415445535ad50adc4f5ca6f9efc1252aadf9847f") ' PowerISO Premium Key
             My.Computer.Registry.SetValue("HKEY_CURRENT_USER\Software\PowerISO", "USER", powerIsoKey, Microsoft.Win32.RegistryValueKind.Binary)
 
             ' Extract - WinRAR
-        ElseIf Me.CopyMode = "Rar" Or Me.CopyMode = "Sfx" Then
+        ElseIf Me.CopyMode = SplitMode.Rar Or Me.CopyMode = SplitMode.Sfx Then
             If Me.architecture = 32 Then
-                If Not IO.File.Exists(Me.TempDir & "Splitty_WinRAR.exe") Then Me.Load_Resource_To_Disk(My.Resources.Splitty_WinRAR_x86, Me.TempDir & "Splitty_WinRAR.7z")
+                If Not IO.File.Exists(Me.TempDir & "Splitty_WinRAR.exe") Then Me.Load_Resource_To_Disk(My.Resources.Splitty_WinRAR_x86, Me.TempDir & "Splitty_WinRAR.zip")
             ElseIf Me.architecture = 64 Then
-                If Not IO.File.Exists(Me.TempDir & "Splitty_WinRAR.exe") Then Me.Load_Resource_To_Disk(My.Resources.Splitty_WinRAR_x64, Me.TempDir & "Splitty_WinRAR.7z")
+                If Not IO.File.Exists(Me.TempDir & "Splitty_WinRAR.exe") Then Me.Load_Resource_To_Disk(My.Resources.Splitty_WinRAR_x64, Me.TempDir & "Splitty_WinRAR.zip")
             End If
-            Me.Run_Process(Me.TempDir & "Splitty_7zip.exe", "e " & """" & Me.TempDir & "Splitty_WinRAR.7z" & """" & " -o" & """" & Me.TempDir & """" & " -y", False, True)
+            Me.Run_Process(Me.TempDir & "Splitty_7zip.exe", ArchiveCommandBuilder.BuildExtractArguments(Me.TempDir & "Splitty_WinRAR.zip", Me.TempDir), False, True)
         End If
 
-        If Me.CopyMode = "Copy" Or Me.CopyMode = "Iso" Then
+        If Me.CopyMode = SplitMode.Copy Or Me.CopyMode = SplitMode.Iso Then
             If Not Me.WantToCancelThread = True Then
 
-                Me.Set_Folder_Access(Me.SelectedDirectory, FolderAccess.Create + FolderAccess.Write + FolderAccess.Delete, Action.Deny)
+                Me.Lock_Selected_Directory()
 
                 Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Value = 0)
-                Me.Get_All_Files(New IO.DirectoryInfo(Me.SelectedDirectory))
+                Me.FilesList = DirectoryScanner.GetFiles(Me.SelectedDirectory)
+                Me.TotalFilesNumber = Me.FilesList.Count
+                Dim plan As List(Of PlannedFile) = SplitPlanner.Plan(Me.FilesList, discCapacityBytes)
 
                 ' ProgressBar
                 Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Max = Me.TotalFilesNumber)
-                Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextFormat = My.Resources.ResourceManager.GetObject(LanguageResource & "06"))
+                Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextFormat = My.Resources.ResourceManager.GetString(LanguageResource & "06"))
                 Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextShow = ProgBar.ProgBarPlus.eTextShow.FormatString)
 
-                If Me.CopyMode = "Iso" Then
-                    Me.Run_Process(Me.TempDir & "Splitty_7zip.exe", "e " & """" & Me.TempDir & "Splitty_PowerISO.7z" & """" & " -o" & """" & Me.TempDir & """" & " -y", False, True)
+                If Me.CopyMode = SplitMode.Iso Then
+                    Me.Run_Process(Me.TempDir & "Splitty_7zip.exe", ArchiveCommandBuilder.BuildExtractArguments(Me.TempDir & "Splitty_PowerISO.7z", Me.TempDir), False, True)
                     Try
                         IO.File.Delete(Me.TempDir & "Splitty_PowerISO.7z")
                         IO.File.Delete(Me.TempDir & "Splitty_7zip.exe")
@@ -1148,131 +1024,58 @@
                 End If
 
                 ' Copy / Iso
-                Dim folderNum As Integer = 1
-                For Each file In Me.FilesList
+                Dim currentDisc As Integer = 1
+                For Each item As PlannedFile In plan
                     Application.DoEvents()
-                    If Not Me.WantToCancelThread = True Then
-                        Me.CachedSize += file.Split("|")(2)
-                        If Not Me.CachedSize > Me.SelectedDiscBytes Then
-                            Me.Copy_File(file.Split("|")(0) & "\" & file.Split("|")(1), Me.SelectedOutputDirectory & "\Disc " & folderNum & Me.Get_File_Info(file.Split("|")(0) & "\" & file.Split("|")(1), DirectoryName).Split(":")(1), True, True)
-
-                            Me.Set_TaskBar_Value(Me.ProgBarPlus.ValuePercent, 100)
-                            Me.InvokeControl(Me, Sub(x) x.Text = Me.ProgBarPlus.ValuePercent & "% Splitty")
-
-                        Else
-                            If Me.CopyMode = "Iso" Then
-                                Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextFormat = My.Resources.ResourceManager.GetObject(LanguageResource & "07") & folderNum & " ...")
-                                If IO.File.Exists(Me.SelectedOutputDirectory & "\Disc " & folderNum & ".iso") Then Try : IO.File.Delete(Me.SelectedOutputDirectory & "\Disc " & folderNum & ".iso") : Catch : End Try
-                                While Not Me.Run_Process(Me.TempDir & "Splitty_Piso.exe", " -disable-optimization create -o " & """" & Me.SelectedOutputDirectory & "\Disc " & folderNum & ".iso" & """" & " -add " & """" & Me.SelectedOutputDirectory & "\Disc " & folderNum & """" & " /", False, True) = True
-                                    If Me.WantToCancelThread Then
-                                        Exit While
-                                    End If
-                                End While
-                                Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextFormat = My.Resources.ResourceManager.GetObject(LanguageResource & "06"))
-                                Try : IO.Directory.Delete(Me.SelectedOutputDirectory & "\Disc " & folderNum, True) : Catch : End Try
-                            End If
-                            Me.CachedSize = Nothing
-                            Me.CachedSize += file.Split("|")(2)
-                            folderNum += 1
-                            Me.Copy_File(file.Split("|")(0) & "\" & file.Split("|")(1), Me.SelectedOutputDirectory & "\Disc " & folderNum & Me.Get_File_Info(file.Split("|")(0) & "\" & file.Split("|")(1), DirectoryName).Split(":")(1), True, True)
-                        End If
-                        Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Value += 1)
-                    Else
+                    If Me.WantToCancelThread Then
                         Exit For
                     End If
-                Next
-                If Me.CopyMode = "Iso" Then
-                    Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextFormat = My.Resources.ResourceManager.GetObject(LanguageResource & "07") & folderNum & " ...")
-                    If IO.File.Exists(Me.SelectedOutputDirectory & "\Disc " & folderNum & ".iso") Then Try : IO.File.Delete(Me.SelectedOutputDirectory & "\Disc " & folderNum & ".iso") : Catch : End Try
-                    While Not Me.Run_Process(Me.TempDir & "Splitty_Piso.exe", " -disable-optimization create -o " & """" & Me.SelectedOutputDirectory & "\Disc " & folderNum & ".iso" & """" & " -add " & """" & Me.SelectedOutputDirectory & "\Disc " & folderNum & """" & " /", False, True) = True
-                        If Me.WantToCancelThread Then
-                            Exit While
+
+                    If item.DiscNumber <> currentDisc Then
+                        If Me.CopyMode = SplitMode.Iso Then
+                            Me.Create_Disc_Iso(currentDisc)
                         End If
-                    End While
-                    Try : IO.Directory.Delete(Me.SelectedOutputDirectory & "\Disc " & folderNum, True) : Catch : End Try
+                        currentDisc = item.DiscNumber
+                    End If
+
+                    Me.Copy_Planned_File(item)
+                    Me.Set_TaskBar_Value(Me.ProgBarPlus.ValuePercent, 100)
+                    Me.InvokeControl(Me, Sub(x) x.Text = Me.ProgBarPlus.ValuePercent & "% Splitty")
+                    Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Value += 1)
+                Next
+
+                ' Before, the ISO of a missing "Disc 1" folder was retried forever when the source directory was empty.
+                If Me.CopyMode = SplitMode.Iso AndAlso plan.Count > 0 AndAlso Not Me.WantToCancelThread Then
+                    Me.Create_Disc_Iso(currentDisc)
                 End If
             End If
             Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextFormat = "")
 
-        Else
+        ElseIf Not Me.WantToCancelThread Then
 
-            Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Max = Me.Label_Discs_Value.Text.Split(" ")(0))
-            If Me.Label_Discs_Value.Text.Split(" ")(0) = 1 Then Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextFormat = My.Resources.ResourceManager.GetObject(LanguageResource & "08")) Else Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextFormat = My.Resources.ResourceManager.GetObject(LanguageResource & "27"))
+            ' Zip / Rar / Sfx / Tar
+            Dim volumeCountMax As Integer = CInt(Math.Max(1L, DiscCapacity.CalculateDiscCount(Me.SelectedDirSizeBytes, Me.SelectedDiscBytes)))
+            Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Max = volumeCountMax)
+            If volumeCountMax = 1 Then Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextFormat = My.Resources.ResourceManager.GetString(LanguageResource & "08")) Else Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextFormat = My.Resources.ResourceManager.GetString(LanguageResource & "27"))
             Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextShow = ProgBar.ProgBarPlus.eTextShow.FormatString)
 
-            ' Zip
-            If Me.CopyMode = "Zip" And Not Me.WantToCancelThread = True Then
-                Me.ThreadProcess = New Threading.Thread(AddressOf Me.Process_Thread) With {
-                    .IsBackground = True
-                }
-                Me.ThreadProcess.Start("7zip")
-                While Not Me.ThreadProcessIsCompleted = True
-                    If Me.WantToCancelThread Then
-                        Exit While
-                    Else
-                        Dim volumeCount As Integer = IO.Directory.GetFiles(Me.SelectedOutputDirectory, "*.zip.*").Length
-                        If volumeCount = 0 Then Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Value = 1) Else Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Value = volumeCount)
-                        Me.Set_TaskBar_Value(Me.ProgBarPlus.ValuePercent, 100)
-                        Me.InvokeControl(Me, Sub(x) x.Text = Me.ProgBarPlus.ValuePercent & "% Splitty")
-                        Me.Set_TaskBar_Value(Me.ProgBarPlus.ValuePercent, 100)
-                        Me.InvokeControl(Me, Sub(x) x.Text = Me.ProgBarPlus.ValuePercent & "% Splitty")
-                    End If
-                End While
-            End If
-
-            ' Rar
-            If Me.CopyMode = "Rar" And Not Me.WantToCancelThread = True Then
-                Me.ThreadProcess = New Threading.Thread(AddressOf Me.Process_Thread) With {
-                    .IsBackground = True
-                }
-                Me.ThreadProcess.Start("Rar")
-                While Not Me.ThreadProcessIsCompleted = True
-                    If Me.WantToCancelThread Then
-                        Exit While
-                    Else
-                        Dim volumeCount As Integer = IO.Directory.GetFiles(Me.SelectedOutputDirectory, "*part*.rar").Length
-                        If volumeCount = 0 Then Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Value = 1) Else Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Value = volumeCount)
-                        Me.Set_TaskBar_Value(Me.ProgBarPlus.ValuePercent, 100)
-                        Me.InvokeControl(Me, Sub(x) x.Text = Me.ProgBarPlus.ValuePercent & "% Splitty")
-                    End If
-                End While
-            End If
-
-            ' Sfx
-            If Me.CopyMode = "Sfx" And Not Me.WantToCancelThread = True Then
-                Me.ThreadProcess = New Threading.Thread(AddressOf Me.Process_Thread) With {
-                    .IsBackground = True
-                }
-                Me.ThreadProcess.Start("Sfx")
-                While Not Me.ThreadProcessIsCompleted = True
-                    If Me.WantToCancelThread Then
-                        Exit While
-                    Else
-                        Dim volumeCount As Integer = IO.Directory.GetFiles(Me.SelectedOutputDirectory, "*part*.rar").Length
-                        If volumeCount = 0 Then Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Value = 1) Else Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Value = volumeCount)
-                        Me.Set_TaskBar_Value(Me.ProgBarPlus.ValuePercent, 100)
-                        Me.InvokeControl(Me, Sub(x) x.Text = Me.ProgBarPlus.ValuePercent & "% Splitty")
-                    End If
-                End While
-            End If
-        End If
-
-        ' Tar
-        If Me.CopyMode = "Tar" And Not Me.WantToCancelThread = True Then
+            Dim volumePattern As String = ArchiveCommandBuilder.GetVolumeSearchPattern(Me.CopyMode)
             Me.ThreadProcess = New Threading.Thread(AddressOf Me.Process_Thread) With {
                 .IsBackground = True
             }
-            Me.ThreadProcess.Start("Tar")
+            Me.ThreadProcess.Start(Me.CopyMode)
             While Not Me.ThreadProcessIsCompleted = True
                 If Me.WantToCancelThread Then
                     Exit While
-                Else
-                    Dim volumeCount As Integer = IO.Directory.GetFiles(Me.SelectedOutputDirectory, "*.tar.*").Length
-                    If volumeCount = 0 Then Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Value = 1) Else Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Value = volumeCount)
-                    Me.Set_TaskBar_Value(Me.ProgBarPlus.ValuePercent, 100)
-                    Me.InvokeControl(Me, Sub(x) x.Text = Me.ProgBarPlus.ValuePercent & "% Splitty")
                 End If
+                Dim volumeCount As Integer = IO.Directory.GetFiles(Me.SelectedOutputDirectory, volumePattern).Length
+                Dim progressValue As Integer = Math.Min(volumeCountMax, Math.Max(1, volumeCount))
+                Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.Value = progressValue)
+                Me.Set_TaskBar_Value(Me.ProgBarPlus.ValuePercent, 100)
+                Me.InvokeControl(Me, Sub(x) x.Text = Me.ProgBarPlus.ValuePercent & "% Splitty")
+                Threading.Thread.Sleep(250) ' Avoids a busy loop that continuously enumerates the output directory.
             End While
+
         End If
 
         Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextFormat = " ")
@@ -1280,41 +1083,102 @@
 
         ' Clean up
         Try
-            IO.File.Delete(Me.TempDir & "7z.dll")
-            IO.File.Delete(Me.TempDir & "Splitty_7zip.exe")
-            IO.File.Delete(Me.TempDir & "PowerISO.exe")
-            IO.File.Delete(Me.TempDir & "Splitty_Piso.exe")
-            IO.File.Delete(Me.TempDir & "Splitty_WinRAR.7z")
-            IO.File.Delete(Me.TempDir & "Splitty_WinRAR.exe")
-            IO.File.Delete(Me.TempDir & "rarreg.key")
+            IO.File.Delete(Me.TempDir & "7z_x64.dll")
+            IO.File.Delete(Me.TempDir & "7z_x86.dll")
             IO.File.Delete(Me.TempDir & "Default.SFX")
+            IO.File.Delete(Me.TempDir & "Default32.SFX")
+            IO.File.Delete(Me.TempDir & "PowerISO.exe")
+            IO.File.Delete(Me.TempDir & "rarreg.key")
+            IO.File.Delete(Me.TempDir & "Splitty_7zip.exe")
+            IO.File.Delete(Me.TempDir & "Splitty_7zip_x64.exe")
+            IO.File.Delete(Me.TempDir & "Splitty_7zip_x86.exe")
+            IO.File.Delete(Me.TempDir & "Splitty_Piso.exe")
+            IO.File.Delete(Me.TempDir & "Splitty_WinRAR.exe")
+            IO.File.Delete(Me.TempDir & "Splitty_WinRAR.zip")
+            IO.File.Delete(Me.TempDir & "Splitty_WinRAR_x64.zip")
+            IO.File.Delete(Me.TempDir & "Splitty_WinRAR_x86.zip")
         Catch : End Try
 
-        If Not Me.WantToCancelThread Then
+        If Not Me.WantToCancelThread AndAlso Me.splitError Is Nothing Then
             Me.Set_TaskBar_Value(100, 100)
             Me.InvokeControl(Me, Sub(x) x.Text = "100% Splitty")
         End If
 
-        Me.Set_Folder_Access(Me.SelectedDirectory, FolderAccess.Create + FolderAccess.Write + FolderAccess.Delete, Action.Allow)
-        Me.ThreadProcessIsCompleted = False
-        Me.ThreadIsCompleted = True
+    End Sub
+
+    ''' <summary>
+    ''' Copies a source file to the folder of its disc, replicating its directory structure.
+    ''' </summary>
+    ''' <param name="item">The planned file.</param>
+    ''' <remarks>
+    ''' Copy errors are not ignored anymore: they abort the split and are reported to the user.
+    ''' </remarks>
+    Private Sub Copy_Planned_File(item As PlannedFile)
+
+        Dim destinationDirectory As String = SplitPaths.GetDestinationDirectory(Me.SelectedOutputDirectory, item.DiscNumber, item.File.DirectoryPath)
+        IO.Directory.CreateDirectory(destinationDirectory)
+        IO.File.Copy(item.File.FullPath, $"{destinationDirectory}\{item.File.FileName}", overwrite:=True)
+
+    End Sub
+
+    ''' <summary>
+    ''' Creates the ISO image of a disc folder with PowerISO, then deletes the folder.
+    ''' </summary>
+    ''' <param name="discNumber">The one-based disc number.</param>
+    ''' <exception cref="InvalidOperationException">
+    ''' Thrown when PowerISO fails <see cref="MaxIsoAttempts"/> times
+    ''' (before, it was retried forever, freezing the split).
+    ''' </exception>
+    Private Sub Create_Disc_Iso(discNumber As Integer)
+
+        Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextFormat = $"{My.Resources.ResourceManager.GetString(LanguageResource & "07")}{discNumber} ...")
+
+        Dim isoFile As String = SplitPaths.GetDiscIsoFile(Me.SelectedOutputDirectory, discNumber)
+        If IO.File.Exists(isoFile) Then
+            IO.File.Delete(isoFile)
+        End If
+
+        Dim attempt As Integer = 0
+        Do
+            If Me.WantToCancelThread Then
+                Exit Sub
+            End If
+            attempt += 1
+            Dim result As Object = Me.Run_Process(Me.TempDir & "Splitty_Piso.exe", ArchiveCommandBuilder.BuildIsoArguments(Me.SelectedOutputDirectory, discNumber), False, True)
+            If TypeOf result Is Boolean AndAlso CBool(result) Then
+                Exit Do
+            End If
+            If attempt >= MaxIsoAttempts Then
+                Throw New InvalidOperationException($"PowerISO failed to create the ISO image after {MaxIsoAttempts} attempts: {isoFile}")
+            End If
+        Loop
+
+        Me.InvokeControl(Me.ProgBarPlus, Sub(x) x.TextFormat = My.Resources.ResourceManager.GetString(LanguageResource & "06"))
+        IO.Directory.Delete(SplitPaths.GetDiscDirectory(Me.SelectedOutputDirectory, discNumber), recursive:=True)
+
     End Sub
 
 #End Region
 
 #Region " Process thread "
 
-    Private Sub Process_Thread(process As String)
-        If process = "7zip" Then
-            Me.Run_Process(Me.TempDir & "Splitty_7zip.exe", " a " & """" & Me.SelectedOutputDirectory & "\Disc.zip" & """" & " " & """" & Me.SelectedDirectory & """" & " -v" & Me.SelectedDiscBytes.ToString & "b " & " -mx=0 -bd -tzip", False, True)
-        ElseIf process = "Rar" Then
-            Me.Run_Process(Me.TempDir & "Splitty_WinRar.exe", " a " & """" & Me.SelectedOutputDirectory & "\Disc.rar" & """" & " " & """" & Me.SelectedDirectory & """" & " -v" & Me.SelectedDiscBytes.ToString & "b " & " -m0  -ibck -o+", False, True)
-        ElseIf process = "Sfx" Then
-            Me.Run_Process(Me.TempDir & "Splitty_WinRar.exe", " a -sfx " & """" & Me.SelectedOutputDirectory & "\Disc.exe" & """" & " " & """" & Me.SelectedDirectory & """" & " -v" & Me.SelectedDiscBytes.ToString & "b " & " -m0  -ibck -o+", False, True)
-        ElseIf process = "Tar" Then
-            Me.Run_Process(Me.TempDir & "Splitty_7zip.exe", " a " & """" & Me.SelectedOutputDirectory & "\Disc.tar" & """" & " " & """" & Me.SelectedDirectory & """" & " -v" & Me.SelectedDiscBytes.ToString & "b " & " -mx=0 -bd -ttar", False, True)
-        End If
-        Me.ThreadProcessIsCompleted = True
+    Private Sub Process_Thread(process As Object)
+        Try
+            Dim mode As SplitMode = CType(process, SplitMode)
+            Dim executable As String = If(mode = SplitMode.Zip OrElse mode = SplitMode.Tar, "Splitty_7zip.exe", "Splitty_WinRar.exe")
+            Dim arguments As String = ArchiveCommandBuilder.BuildArchiveArguments(mode, Me.SelectedDirectory, Me.SelectedOutputDirectory, Me.SelectedDiscBytes)
+            Dim result As Object = Me.Run_Process(Me.TempDir & executable, arguments, False, True)
+
+            ' Before, a failure of the archiver (non-zero exit code, or process not found) was ignored
+            ' and the split was reported as successful.
+            If Not (TypeOf result Is Boolean AndAlso CBool(result)) AndAlso Not Me.WantToCancelThread Then
+                Me.splitError = New InvalidOperationException($"The archiver process failed: {executable}{arguments}")
+            End If
+        Catch ex As Exception
+            Me.splitError = ex
+        Finally
+            Me.ThreadProcessIsCompleted = True
+        End Try
     End Sub
 
 #End Region

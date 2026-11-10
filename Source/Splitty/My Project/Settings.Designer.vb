@@ -56,7 +56,7 @@ Namespace My
 
         <Global.System.Configuration.ApplicationScopedSettingAttribute(),
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),
-         Global.System.Configuration.DefaultSettingValueAttribute("Splitty 1.7     .:: By ElektroStudios ::.")>
+         Global.System.Configuration.DefaultSettingValueAttribute("Splitty 1.8     .:: By ElektroStudios ::.")>
         Public ReadOnly Property Version() As String
             Get
                 Return CType(Me("Version"), String)

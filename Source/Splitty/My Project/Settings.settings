@@ -3,7 +3,7 @@
   <Profiles />
   <Settings>
     <Setting Name="Version" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">Splitty 1.7     .:: By ElektroStudios ::.</Value>
+      <Value Profile="(Default)">Splitty 1.8     .:: By ElektroStudios ::.</Value>
     </Setting>
   </Settings>
 </SettingsFile>

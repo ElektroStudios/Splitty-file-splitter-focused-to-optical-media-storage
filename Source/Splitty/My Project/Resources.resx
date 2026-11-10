@@ -337,6 +337,18 @@
   <data name="ENG32" xml:space="preserve">
     <value>File changes have been made in source folder, Want to reload the folder now?</value>
   </data>
+  <data name="ENG33" xml:space="preserve">
+    <value>The output directory can't be the same as, or be inside of, the input directory.</value>
+  </data>
+  <data name="SPA33" xml:space="preserve">
+    <value>El directorio de salida no puede ser el mismo que el directorio de entrada, ni estar dentro de él.</value>
+  </data>
+  <data name="ENG34" xml:space="preserve">
+    <value>An error occurred while splitting:</value>
+  </data>
+  <data name="SPA34" xml:space="preserve">
+    <value>Se produjo un error al partir:</value>
+  </data>
   <data name="SPA32" xml:space="preserve">
     <value>Se han efectuado cambios en los archivos de la carpeta de origen, ¿Quiere recargar la carpeta ahora?</value>
   </data>
@@ -350,10 +362,10 @@
     <value>..\Resources\x86\Splitty_PowerISO_x86.7z;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="Splitty_WinRAR_x64" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\x64\Splitty_WinRAR_x64.7z;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>..\Resources\x64\Splitty_WinRAR_x64.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="Splitty_WinRAR_x86" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\x86\Splitty_WinRAR_x86.7z;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>..\Resources\x86\Splitty_WinRAR_x86.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="_7z_x64" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\x64\7z_x64.dll;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
